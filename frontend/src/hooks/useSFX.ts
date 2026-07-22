@@ -156,5 +156,37 @@ export function useSFX() {
     }
   };
 
-  return { sfxEnabled, toggleSFX, playClick, playSuccess, playError, playBootSound };
+  const playLoadingSound = () => {
+    if (!sfxEnabled) return;
+    const ctx = getAudioContext();
+    if (!ctx) return;
+
+    try {
+      const now = ctx.currentTime;
+
+      // Efeito de escaneamento / leitura de disco retrô em 3 pings acelerados (Radar Pulse)
+      [0, 0.1, 0.2].forEach((delay, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(620 + i * 140, now + delay);
+        osc.frequency.exponentialRampToValueAtTime(880 + i * 160, now + delay + 0.05);
+
+        gain.gain.setValueAtTime(0.001, now + delay);
+        gain.gain.linearRampToValueAtTime(0.1, now + delay + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.07);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(now + delay);
+        osc.stop(now + delay + 0.07);
+      });
+    } catch {
+      // Ignora erro
+    }
+  };
+
+  return { sfxEnabled, toggleSFX, playClick, playSuccess, playError, playBootSound, playLoadingSound };
 }

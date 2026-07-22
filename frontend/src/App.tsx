@@ -46,7 +46,7 @@ interface MediaInfo {
 const BACKEND_URL = 'http://localhost:8000';
 
 export default function App() {
-  const { sfxEnabled, toggleSFX, playClick, playSuccess, playError } = useSFX();
+  const { sfxEnabled, toggleSFX, playClick, playSuccess, playError, playLoadingSound } = useSFX();
 
   const [booting, setBooting] = useState(true);
   const [urlInput, setUrlInput] = useState('');
@@ -131,6 +131,7 @@ export default function App() {
     }
 
     setLoading(true);
+    playLoadingSound();
     setErrorMsg(null);
     setMediaInfo(null);
     setMobyState('searching');
