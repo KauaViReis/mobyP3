@@ -84,7 +84,6 @@ YTDL_BASE_OPTS: Dict[str, Any] = {
     'socket_timeout': 15,
     'geo_bypass': True,
     'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
-    'extractor_args': {'youtube': {'player_client': ['android']}},
 }
 
 if _cookies_path:
@@ -119,20 +118,42 @@ def get_video_info(req: InfoRequest):
             res_data["cached"] = True
             return res_data
 
-    # Player clients to try in order (android & mweb bypass datacenter 403 bot detection on Render)
-    player_clients = [['android'], ['mweb'], ['ios'], ['web', 'default']]
-    last_error = None
-
-    for clients in player_clients:
-        ydl_opts = {
+    # Multi-strategy options for maximum compatibility on cloud servers
+    attempts_opts = [
+        # Strategy 1: Standard yt-dlp config (full format availability)
+        {
             **YTDL_BASE_OPTS,
             'extract_flat': 'in_playlist',
             'playlistend': 20,
             'skip_download': True,
             'writesubtitles': True,
             'writeautomaticsub': True,
-            'extractor_args': {'youtube': {'player_client': clients}},
+        },
+        # Strategy 2: Fallback with android_vr & mweb for cloud IP bot bypass
+        {
+            **YTDL_BASE_OPTS,
+            'extract_flat': 'in_playlist',
+            'playlistend': 20,
+            'skip_download': True,
+            'writesubtitles': True,
+            'writeautomaticsub': True,
+            'extractor_args': {'youtube': {'player_client': ['android_vr', 'mweb']}},
+        },
+        # Strategy 3: Fallback with tv_embedded
+        {
+            **YTDL_BASE_OPTS,
+            'extract_flat': 'in_playlist',
+            'playlistend': 20,
+            'skip_download': True,
+            'writesubtitles': True,
+            'writeautomaticsub': True,
+            'extractor_args': {'youtube': {'player_client': ['tv_embedded']}},
         }
+    ]
+
+    last_error = None
+
+    for ydl_opts in attempts_opts:
         if _cookies_path:
             ydl_opts['cookiefile'] = _cookies_path
 
@@ -294,7 +315,7 @@ def get_video_info(req: InfoRequest):
 
         except yt_dlp.utils.DownloadError as e:
             last_error = str(e)
-            logger.warning(f"yt-dlp falhou com clients {clients}: {last_error}")
+            logger.warning(f"yt-dlp tentativa falhou: {last_error}")
             if "Private video" in last_error:
                 raise HTTPException(status_code=400, detail="Este vídeo é privado.")
             if "Video unavailable" in last_error or "removed" in last_error:
@@ -302,16 +323,16 @@ def get_video_info(req: InfoRequest):
             if "Unsupported URL" in last_error:
                 raise HTTPException(status_code=400, detail="URL não suportada. Tente um link do YouTube, SoundCloud, etc.")
             if "Sign in" in last_error or "bot" in last_error.lower() or "403" in last_error:
-                logger.info("Bot detection / 403 detectado, tentando próximo player client...")
+                logger.info("Bot detection / 403 detectado, tentando próxima estratégia...")
                 continue
             continue
         except Exception as e:
             last_error = str(e)
-            logger.error(f"Erro inesperado com clients {clients}: {last_error}")
+            logger.error(f"Erro inesperado na extração: {last_error}")
             continue
 
-    # All clients failed
-    logger.error(f"Todos os player clients falharam para {url}: {last_error}")
+    # All strategies failed
+    logger.error(f"Todas as estratégias de extração falharam para {url}: {last_error}")
     raise HTTPException(
         status_code=400,
         detail="Não foi possível processar esta mídia. Verifique se a URL é válida ou tente novamente em alguns instantes."
