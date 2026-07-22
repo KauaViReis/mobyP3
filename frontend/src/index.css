@@ -3,14 +3,14 @@
 @tailwind utilities;
 
 @layer utilities {
-  /* Nintendo 2001 Halftone Dot Pattern for Carbon elements */
+  /* Y2K Halftone Dot Pattern for Carbon elements */
   .bg-halftone {
     background-color: #21242e;
     background-image: radial-gradient(rgba(255, 255, 255, 0.12) 1px, transparent 1px);
     background-size: 4px 4px;
   }
 
-  /* Beveled Chamfer Borders (Nintendo metal chassis) */
+  /* Beveled Chamfer Borders (Console metal chassis) */
   .bevel-chassis {
     border-top: 2px solid rgba(255, 255, 255, 0.7);
     border-left: 2px solid rgba(255, 255, 255, 0.5);
@@ -32,12 +32,12 @@
     border-bottom: 1px solid #ffffff;
   }
 
-  /* Nintendo Box-art Text Shadow */
-  .text-nintendo-hero {
+  /* Y2K Box-art Text Shadow */
+  .text-retro-hero {
     text-shadow: 2px 2px 0px #000000, -1px -1px 0px #000000;
   }
   
-  .text-nintendo-shadow {
+  .text-retro-shadow {
     text-shadow: 1px 1px 0px #000000;
   }
 }

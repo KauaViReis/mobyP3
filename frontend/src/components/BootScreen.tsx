@@ -98,11 +98,11 @@ export default function BootScreen({ onBootComplete, backendUrl }: BootScreenPro
 
         {/* Console Box-Art Title */}
         <div className="space-y-1">
-          <h1 className="text-4xl font-display font-black tracking-tighter text-white text-nintendo-hero italic">
+          <h1 className="text-4xl font-display font-black tracking-tighter text-white text-retro-hero italic">
             moby<span className="text-primary italic">P3</span>
           </h1>
           <p className="text-xs font-pixel text-amber tracking-widest uppercase">
-            Nintendo 2001 Hardware Edition
+            Y2K Console Hardware Edition
           </p>
         </div>
 

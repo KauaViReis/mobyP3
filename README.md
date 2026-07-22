@@ -1,9 +1,9 @@
 <div align="center">
 
 # 🐋 mobyP3 (v3.0 Pro Edition)
-### *Web App de Download de Vídeos & Músicas de Alta Performance | Nintendo 2001 Hardware Edition*
+### *Web App de Download de Vídeos & Músicas de Alta Performance | Y2K Console Hardware Edition*
 
-![Publisher](https://img.shields.io/badge/Licensed_by-BRUH_LTDA-f68d1f?style=for-the-badge&logo=nintendo)
+![Publisher](https://img.shields.io/badge/Licensed_by-BRUH_LTDA-f68d1f?style=for-the-badge)
 ![Status](https://img.shields.io/badge/Status-100%25_Funcional-green?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)
 ![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi)
@@ -13,12 +13,16 @@
 <br />
 
 ```text
- ╔═══════════════════════════════════════════════════════════════════════════╗
- ║  __  __  ____  ____  _  _  ____  ____                                   ║
- ║ (  \/  )(  _ \(  _ \( \/ )(  _ \____)                                   ║
- ║  )    (  ) _ ( ) _ ( \  /  )___/ _  _                                   ║
- ║ (_/\/\_)(____/(____/  \/  (__)  (_)(_)  NINTENDO.COM CIRCA 2001 CHASSIS ║
- ╚═══════════════════════════════════════════════════════════════════════════╝
+╔═════════════════════════════════════════════════════════════════════════════╗
+║ BRUH LTDA. SYSTEM BIOS (C) 2001-2026                                        ║
+║ MODEL: mobyP3 - Y2K CONSOLE MEDIA HARDWARE                                  ║
+║ ─────────────────────────────────────────────────────────────────────────── ║
+║ [✓] AUDIO CPU    : 8-Bit WebAudio Synthesizer [ONLINE]                      ║
+║ [✓] MEMORY CARD  : 8MB LocalStorage Card (Slot 1) [READY]                   ║
+║ [✓] ENGINE CORE  : FastAPI + yt-dlp Pipeline [ACTIVE]                       ║
+║ ─────────────────────────────────────────────────────────────────────────── ║
+║ SYSTEM STATUS    : WAITING FOR MEDIA LINK INPUT...                          ║
+╚═════════════════════════════════════════════════════════════════════════════╝
 ```
 
 <p align="center">
@@ -27,7 +31,7 @@
 </p>
 
 [✨ Funcionalidades](#-funcionalidades-de-destaque) •
-[🕹️ Design System](#️-design-system-nintendo-2001) •
+[🕹️ Design System](#️-design-system-y2k-hardware) •
 [🚀 Como Executar](#-como-executar-o-projeto) •
 [🛠️ Arquitetura](#%EF%B8%8F-arquitetura-do-sistema)
 
@@ -64,9 +68,9 @@
 
 ---
 
-## 🕹️ Design System Nintendo 2001
+## 🕹️ Design System Y2K Hardware
 
-A interface do **mobyP3** foi construída simulando a carcaça de hardware do site oficial da **Nintendo.com do ano 2001**:
+A interface do **mobyP3** foi construída simulando a carcaça de hardware de consoles de videogame dos anos 2000:
 
 - 🎨 **Periwinkle Metallic (`#7a8aba`):** Corpo principal do chassi de metal escovado.
 - 🖤 **Carbon Navy (`#21242e`):** Camada de comando superior com textura *halftone dot-matrix*.
@@ -82,7 +86,7 @@ A interface do **mobyP3** foi construída simulando a carcaça de hardware do si
 ```text
 ┌───────────────────────────────────────┐      ┌────────────────────────────────────────┐
 │     FRONTEND (Next.js / React + Vite) │      │      BACKEND (Python / FastAPI)        │
-│  - Estética Nintendo 2001 Y2K         │ ───► │  - FastAPI + Uvicorn                   │
+│  - Estética Y2K Hardware              │ ───► │  - FastAPI + Uvicorn                   │
 │  - Web Audio API (Sons 8-Bit)         │ HTTP │  - yt-dlp + FFmpeg                     │
 │  - Storage Local (Memory Card 8MB)    │      │  - Cache de Metadados em Memória      │
 └───────────────────────────────────────┘      └────────────────────────────────────────┘
@@ -155,7 +159,7 @@ mobyP3/
 │   │   ├── hooks/
 │   │   │   └── useSFX.ts                # Sintetizador de sons 8-bit Web Audio API
 │   │   ├── App.tsx                      # Chassi principal da aplicação
-│   │   └── index.css                    # Tokens visuais Nintendo 2001
+│   │   └── index.css                    # Tokens visuais Y2K Hardware
 │   ├── package.json
 │   └── vite.config.ts
 └── README.md

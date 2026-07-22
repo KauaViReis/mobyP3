@@ -168,16 +168,16 @@ export default function App() {
         if (urlInput.includes('list') || urlInput.includes('playlist')) {
           setMediaInfo({
             is_playlist: true,
-            playlist_title: "Top Hits Nintendo 2001 (Demo Playlist)",
+            playlist_title: "Top Hits Y2K Hardware (Demo Playlist)",
             playlist_items: [
-              { id: "p1", title: "Super Mario 64 - Main Theme", thumbnail: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=300", duration: "03:15", uploader: "Nintendo Sound", webpage_url: urlInput },
-              { id: "p2", title: "The Legend of Zelda - Ocarina of Time", thumbnail: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=300", duration: "04:20", uploader: "Nintendo Sound", webpage_url: urlInput }
+              { id: "p1", title: "Retro Cyber Synth - Main Theme", thumbnail: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=300", duration: "03:15", uploader: "BRUH Sound Labs", webpage_url: urlInput },
+              { id: "p2", title: "Ocarina Wave - Chiptune Mix", thumbnail: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=300", duration: "04:20", uploader: "BRUH Sound Labs", webpage_url: urlInput }
             ],
             webpage_url: urlInput
           });
           setMobyState('ready');
           setMobySpeech('Playlist de demonstração reconhecida!');
-          saveToMemoryCard({ title: "Top Hits Nintendo 2001 (Demo Playlist)", url: urlInput, platform: "PLAYLIST" });
+          saveToMemoryCard({ title: "Top Hits Y2K Hardware (Demo Playlist)", url: urlInput, platform: "PLAYLIST" });
         } else {
           setMediaInfo({
             is_playlist: false,
@@ -186,7 +186,7 @@ export default function App() {
             thumbnail: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=800&auto=format&fit=crop",
             maxres_thumbnail: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1200&auto=format&fit=crop",
             duration: "03:45",
-            uploader: "Nintendo 2001 Audio Labs",
+            uploader: "BRUH 2001 Audio Labs",
             audio_formats: [
               { format_id: "a1", ext: "mp3", quality: "320 kbps (Áudio HD)", filesize: "8.6 MB", type: "audio", needs_merge: false, direct_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3", note: "Qualidade Máxima MP3" }
             ],
