@@ -1,0 +1,50 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  /* Nintendo 2001 Halftone Dot Pattern for Carbon elements */
+  .bg-halftone {
+    background-color: #21242e;
+    background-image: radial-gradient(rgba(255, 255, 255, 0.12) 1px, transparent 1px);
+    background-size: 4px 4px;
+  }
+
+  /* Beveled Chamfer Borders (Nintendo metal chassis) */
+  .bevel-chassis {
+    border-top: 2px solid rgba(255, 255, 255, 0.7);
+    border-left: 2px solid rgba(255, 255, 255, 0.5);
+    border-right: 2px solid #3d4f97;
+    border-bottom: 3px solid #3d4f97;
+  }
+
+  .bevel-card {
+    border-top: 2px solid #ffffff;
+    border-left: 2px solid #ffffff;
+    border-right: 2px solid #3d4f97;
+    border-bottom: 2px solid #3d4f97;
+  }
+
+  .bevel-inset {
+    border-top: 2px solid #3d4f97;
+    border-left: 2px solid #3d4f97;
+    border-right: 1px solid #ffffff;
+    border-bottom: 1px solid #ffffff;
+  }
+
+  /* Nintendo Box-art Text Shadow */
+  .text-nintendo-hero {
+    text-shadow: 2px 2px 0px #000000, -1px -1px 0px #000000;
+  }
+  
+  .text-nintendo-shadow {
+    text-shadow: 1px 1px 0px #000000;
+  }
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  background-color: #7a8aba;
+}
