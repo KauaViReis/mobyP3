@@ -43,7 +43,7 @@ interface MediaInfo {
   audio_preview_url?: string;
 }
 
-const BACKEND_URL = 'http://localhost:8000';
+const BACKEND_URL = 'http://127.0.0.1:8000';
 
 export default function App() {
   const { sfxEnabled, toggleSFX, playClick, playSuccess, playError, playLoadingSound } = useSFX();
@@ -105,7 +105,7 @@ export default function App() {
 
   const checkHealth = async () => {
     try {
-      const res = await fetch(`${BACKEND_URL}/health`, { signal: AbortSignal.timeout(3500) });
+      const res = await fetch(`${BACKEND_URL}/health`, { signal: AbortSignal.timeout(8000) });
       if (res.ok) {
         setBackendStatus('ready');
         setMobyState('sleeping');
