@@ -11,6 +11,7 @@ from fastapi.responses import StreamingResponse, FileResponse, JSONResponse
 from pydantic import BaseModel
 import yt_dlp
 import requests
+import httpx
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("mobyP3")
@@ -322,22 +323,51 @@ def merge_and_download(req: DownloadRequest):
         logger.error(f"Erro na mesclagem FFmpeg: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Erro ao mesclar alta resolução: {str(e)}")
 
+@app.get("/api/download")
 @app.get("/api/proxy-download")
-def proxy_download(url: str = Query(...), filename: str = Query("mobyP3-media.mp4")):
-    """Proxy streaming endpoint for direct download"""
+async def download_media(url: str = Query(...), filename: str = Query("mobyP3_video.mp4")):
+    """Stream media directly to user device with Content-Disposition attachment header"""
     try:
+        clean_filename = filename.replace('"', '').strip()
+        if not clean_filename:
+            clean_filename = "mobyP3_video.mp4"
+
         headers = {
-            "User-Agent": YTDL_BASE_OPTS.get("user_agent", "Mozilla/5.0")
+            "User-Agent": YTDL_BASE_OPTS.get("user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
         }
-        req = requests.get(url, stream=True, headers=headers, timeout=30)
+
+        async def video_stream():
+            async with httpx.AsyncClient(follow_redirects=True, timeout=60.0) as client:
+                async with client.stream("GET", url, headers=headers) as resp:
+                    if resp.status_code >= 400:
+                        raise HTTPException(status_code=resp.status_code, detail="Erro ao buscar vídeo remoto.")
+                    async for chunk in resp.aiter_bytes(chunk_size=65536):
+                        yield chunk
+
         return StreamingResponse(
-            req.iter_content(chunk_size=65536),
+            video_stream(),
             media_type="application/octet-stream",
-            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+            headers={
+                "Content-Disposition": f'attachment; filename="{clean_filename}"',
+                "Access-Control-Expose-Headers": "Content-Disposition"
+            }
         )
     except Exception as e:
-        logger.error(f"Erro ao transmitir arquivo: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Erro no proxy: {str(e)}")
+        logger.error(f"Erro ao transmitir arquivo via /api/download: {str(e)}")
+        # Synchronous fallback with requests
+        try:
+            req = requests.get(url, stream=True, headers={"User-Agent": "Mozilla/5.0"}, timeout=30)
+            clean_filename = filename.replace('"', '').strip() or "mobyP3_video.mp4"
+            return StreamingResponse(
+                req.iter_content(chunk_size=65536),
+                media_type="application/octet-stream",
+                headers={
+                    "Content-Disposition": f'attachment; filename="{clean_filename}"',
+                    "Access-Control-Expose-Headers": "Content-Disposition"
+                }
+            )
+        except Exception as err:
+            raise HTTPException(status_code=500, detail=f"Erro no download: {str(err)}")
 
 if __name__ == "__main__":
     import uvicorn

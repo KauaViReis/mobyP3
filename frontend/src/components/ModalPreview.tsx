@@ -121,8 +121,9 @@ export default function ModalPreview({
 
         onTriggerToast(`Vídeo ${format.resolution} baixado com áudio!`);
       } catch {
-        window.open(format.direct_url || webpageUrl, '_blank');
-        onTriggerToast(`Download direto iniciado.`);
+        const downloadUrl = `http://localhost:8000/api/download?url=${encodeURIComponent(format.direct_url || webpageUrl)}&filename=${encodeURIComponent(cleanFileName)}`;
+        window.location.href = downloadUrl;
+        onTriggerToast(`Download direto iniciado!`);
       } finally {
         setDownloading(false);
         setDownloadProgress(0);
@@ -150,9 +151,9 @@ export default function ModalPreview({
 
         onTriggerToast(`Arquivo "${cleanFileName}" salvo!`);
       } catch {
-        const proxyUrl = `http://localhost:8000/api/proxy-download?url=${encodeURIComponent(format.direct_url || webpageUrl)}&filename=${encodeURIComponent(cleanFileName)}`;
-        window.open(proxyUrl, '_self');
-        onTriggerToast(`Download proxy iniciado!`);
+        const downloadUrl = `http://localhost:8000/api/download?url=${encodeURIComponent(format.direct_url || webpageUrl)}&filename=${encodeURIComponent(cleanFileName)}`;
+        window.location.href = downloadUrl;
+        onTriggerToast(`Download via backend iniciado!`);
       } finally {
         setDownloading(false);
         setDownloadProgress(0);
