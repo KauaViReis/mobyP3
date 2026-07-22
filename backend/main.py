@@ -48,14 +48,47 @@ class DownloadRequest(BaseModel):
 CACHE_TTL_SECONDS = 600
 info_cache: Dict[str, Dict[str, Any]] = {}
 
-YTDL_BASE_OPTS = {
+# Cookie support for YouTube bot detection bypass
+COOKIES_FILE = os.path.join(os.path.dirname(__file__), 'cookies.txt')
+
+def _get_cookies_path() -> Optional[str]:
+    """Returns path to cookies file if available (file or env var)."""
+    if os.path.exists(COOKIES_FILE):
+        return COOKIES_FILE
+
+    cookies_env = os.environ.get('YOUTUBE_COOKIES', '').strip()
+    if cookies_env:
+        import base64
+        tmp_cookies = os.path.join(tempfile.gettempdir(), 'mobyp3_cookies.txt')
+        try:
+            decoded = base64.b64decode(cookies_env).decode('utf-8')
+            with open(tmp_cookies, 'w', encoding='utf-8') as f:
+                f.write(decoded)
+        except Exception:
+            with open(tmp_cookies, 'w', encoding='utf-8') as f:
+                f.write(cookies_env)
+        return tmp_cookies
+
+    return None
+
+_cookies_path = _get_cookies_path()
+if _cookies_path:
+    logger.info(f"YouTube cookies loaded from: {_cookies_path}")
+else:
+    logger.warning("No YouTube cookies found. Datacenter IPs may be blocked by YouTube.")
+
+YTDL_BASE_OPTS: Dict[str, Any] = {
     'quiet': True,
     'no_warnings': True,
     'nocheckcertificate': True,
-    'socket_timeout': 10,
+    'socket_timeout': 15,
     'geo_bypass': True,
-    'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+    'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+    'extractor_args': {'youtube': {'player_client': ['web']}},
 }
+
+if _cookies_path:
+    YTDL_BASE_OPTS['cookiefile'] = _cookies_path
 
 @app.get("/health")
 def health_check():
@@ -65,6 +98,7 @@ def health_check():
         "publisher": "BRUH LTDA",
         "engine": "Moby Engine v3.0 Pro",
         "yt_dlp_version": yt_dlp.version.__version__,
+        "cookies_loaded": _cookies_path is not None,
         "message": "Motor v3.0 Pronto! Licensed by BRUH LTDA."
     }
 
