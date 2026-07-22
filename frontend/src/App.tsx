@@ -43,11 +43,20 @@ interface MediaInfo {
   audio_preview_url?: string;
 }
 
-const BACKEND_URL = (
-  import.meta.env.VITE_BACKEND_URL || 
-  import.meta.env.VITE_API_URL || 
-  'http://127.0.0.1:8000'
-).replace(/\/$/, '');
+const getBackendUrl = () => {
+  if (import.meta.env.VITE_BACKEND_URL) {
+    return import.meta.env.VITE_BACKEND_URL.replace(/\/$/, '');
+  }
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL.replace(/\/$/, '');
+  }
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    return 'https://mobyp3-backend.onrender.com';
+  }
+  return 'http://127.0.0.1:8000';
+};
+
+const BACKEND_URL = getBackendUrl();
 
 export default function App() {
   const { sfxEnabled, toggleSFX, playClick, playSuccess, playError, playLoadingSound } = useSFX();
