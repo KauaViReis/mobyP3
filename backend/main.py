@@ -84,7 +84,7 @@ YTDL_BASE_OPTS: Dict[str, Any] = {
     'socket_timeout': 15,
     'geo_bypass': True,
     'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
-    'extractor_args': {'youtube': {'player_client': ['web']}},
+    'extractor_args': {'youtube': {'player_client': ['android']}},
 }
 
 if _cookies_path:
@@ -119,184 +119,203 @@ def get_video_info(req: InfoRequest):
             res_data["cached"] = True
             return res_data
 
-    ydl_opts = {
-        **YTDL_BASE_OPTS,
-        'extract_flat': 'in_playlist',
-        'playlistend': 20,
-        'skip_download': True,
-        'writesubtitles': True,
-        'writeautomaticsub': True,
-    }
+    # Player clients to try in order (android & mweb bypass datacenter 403 bot detection on Render)
+    player_clients = [['android'], ['mweb'], ['ios'], ['web', 'default']]
+    last_error = None
 
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-            
-            if not info:
-                raise HTTPException(status_code=404, detail="Não foi possível extrair metadados da URL.")
+    for clients in player_clients:
+        ydl_opts = {
+            **YTDL_BASE_OPTS,
+            'extract_flat': 'in_playlist',
+            'playlistend': 20,
+            'skip_download': True,
+            'writesubtitles': True,
+            'writeautomaticsub': True,
+            'extractor_args': {'youtube': {'player_client': clients}},
+        }
+        if _cookies_path:
+            ydl_opts['cookiefile'] = _cookies_path
 
-            # Check if Playlist
-            if info.get('_type') == 'playlist' or 'entries' in info:
-                entries = info.get('entries', [])
-                playlist_items = []
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=False)
 
-                for entry in entries[:20]: # Limit top 20 items for performance
-                    if not entry:
-                        continue
-                    dur = entry.get('duration', 0) or 0
-                    m, s = divmod(int(dur), 60)
-                    h, m = divmod(m, 60)
-                    dur_str = f"{h:02d}:{m:02d}:{s:02d}" if h > 0 else f"{m:02d}:{s:02d}"
+                if not info:
+                    raise HTTPException(status_code=404, detail="Não foi possível extrair metadados da URL.")
 
-                    playlist_items.append({
-                        "id": entry.get('id'),
-                        "title": entry.get('title', 'Item de Playlist'),
-                        "thumbnail": entry.get('thumbnail') or (entry.get('thumbnails', [{}])[-1].get('url', '')),
-                        "duration": dur_str,
-                        "uploader": entry.get('uploader') or entry.get('channel', 'Desconhecido'),
-                        "webpage_url": entry.get('webpage_url') or f"https://www.youtube.com/watch?v={entry.get('id')}"
-                    })
+                # Check if Playlist
+                if info.get('_type') == 'playlist' or 'entries' in info:
+                    entries = info.get('entries', [])
+                    playlist_items = []
+
+                    for entry in entries[:20]:
+                        if not entry:
+                            continue
+                        dur = entry.get('duration', 0) or 0
+                        m, s = divmod(int(dur), 60)
+                        h, m = divmod(m, 60)
+                        dur_str = f"{h:02d}:{m:02d}:{s:02d}" if h > 0 else f"{m:02d}:{s:02d}"
+
+                        playlist_items.append({
+                            "id": entry.get('id'),
+                            "title": entry.get('title', 'Item de Playlist'),
+                            "thumbnail": entry.get('thumbnail') or (entry.get('thumbnails', [{}])[-1].get('url', '')),
+                            "duration": dur_str,
+                            "uploader": entry.get('uploader') or entry.get('channel', 'Desconhecido'),
+                            "webpage_url": entry.get('webpage_url') or f"https://www.youtube.com/watch?v={entry.get('id')}"
+                        })
+
+                    result_data = {
+                        "is_playlist": True,
+                        "playlist_title": info.get('title', 'Playlist Selecionada'),
+                        "uploader": info.get('uploader', 'Desconhecido'),
+                        "playlist_count": len(playlist_items),
+                        "playlist_items": playlist_items,
+                        "webpage_url": url,
+                        "cached": False
+                    }
+
+                    info_cache[url] = {"timestamp": current_time, "data": result_data}
+                    return result_data
+
+                # Single Video/Audio Extraction
+                raw_formats = info.get('formats', [])
+                audio_formats = []
+                video_formats = []
+                seen_resolutions = set()
+                preview_url = None
+
+                for f in raw_formats:
+                    fmt_id = f.get('format_id')
+                    ext = f.get('ext', 'mp4')
+                    vcodec = f.get('vcodec', 'none')
+                    acodec = f.get('acodec', 'none')
+                    height = f.get('height')
+                    filesize = f.get('filesize') or f.get('filesize_approx')
+                    fps = f.get('fps')
+                    direct_url = f.get('url')
+
+                    filesize_mb = f"{round(filesize / (1024 * 1024), 1)} MB" if filesize else "Variável"
+                    is_progressive = (vcodec != 'none') and (acodec != 'none')
+                    is_audio_only = (vcodec == 'none') and (acodec != 'none')
+
+                    if is_audio_only:
+                        audio_formats.append({
+                            "format_id": fmt_id,
+                            "ext": "mp3" if ext in ["m4a", "webm"] else ext,
+                            "quality": f"{f.get('abr', 128)} kbps" if f.get('abr') else "Áudio HD",
+                            "filesize": filesize_mb,
+                            "direct_url": direct_url,
+                            "type": "audio",
+                            "needs_merge": False,
+                            "note": f.get('format_note', 'Áudio Original')
+                        })
+                    elif vcodec != 'none' and height:
+                        res_label = f"{height}p"
+                        if height >= 2160:
+                            res_label = "4K (2160p)"
+                        elif height >= 1440:
+                            res_label = "2K (1440p)"
+                        elif height >= 1080:
+                            res_label = "1080p FHD"
+                        elif height >= 720:
+                            res_label = "720p HD"
+
+                        if is_progressive and not preview_url and direct_url:
+                            preview_url = direct_url
+
+                        if res_label not in seen_resolutions:
+                            seen_resolutions.add(res_label)
+                            video_formats.append({
+                                "format_id": fmt_id,
+                                "ext": "mp4",
+                                "resolution": res_label,
+                                "raw_height": height,
+                                "fps": fps,
+                                "quality": f"{res_label} ({fps}fps)" if fps else res_label,
+                                "filesize": filesize_mb,
+                                "direct_url": direct_url,
+                                "type": "video",
+                                "needs_merge": not is_progressive
+                            })
+
+                video_formats.sort(key=lambda x: x.get('raw_height', 0), reverse=True)
+
+                if not preview_url and video_formats and video_formats[-1].get('direct_url'):
+                    preview_url = video_formats[-1].get('direct_url')
+
+                # Cover Art (Thumbnails)
+                thumbnails_list = info.get('thumbnails', [])
+                maxres_thumbnail = info.get('thumbnail')
+                if thumbnails_list:
+                    maxres_thumbnail = thumbnails_list[-1].get('url', maxres_thumbnail)
+
+                # Subtitles (Legendas)
+                subtitles_data = []
+                subs = info.get('subtitles', {}) or info.get('automatic_captions', {})
+                for lang, sub_list in subs.items():
+                    if sub_list and isinstance(sub_list, list):
+                        for sub_item in sub_list:
+                            if sub_item.get('ext') in ['vtt', 'srt']:
+                                subtitles_data.append({
+                                    "language": lang.upper(),
+                                    "ext": sub_item.get('ext'),
+                                    "url": sub_item.get('url')
+                                })
+                                break
+                    if len(subtitles_data) >= 5:
+                        break
+
+                duration_secs = info.get('duration', 0) or 0
+                mins, secs = divmod(int(duration_secs), 60)
+                hrs, mins = divmod(mins, 60)
+                duration_str = f"{hrs:02d}:{mins:02d}:{secs:02d}" if hrs > 0 else f"{mins:02d}:{secs:02d}"
 
                 result_data = {
-                    "is_playlist": True,
-                    "playlist_title": info.get('title', 'Playlist Selecionada'),
-                    "uploader": info.get('uploader', 'Desconhecido'),
-                    "playlist_count": len(playlist_items),
-                    "playlist_items": playlist_items,
-                    "webpage_url": url,
+                    "is_playlist": False,
+                    "id": info.get('id'),
+                    "title": info.get('title', 'Mídia sem título'),
+                    "thumbnail": info.get('thumbnail') or maxres_thumbnail,
+                    "maxres_thumbnail": maxres_thumbnail,
+                    "duration": duration_str,
+                    "duration_seconds": duration_secs,
+                    "uploader": info.get('uploader') or info.get('channel', 'Desconhecido'),
+                    "view_count": info.get('view_count', 0),
+                    "audio_formats": audio_formats[:4],
+                    "video_formats": video_formats[:6],
+                    "subtitles": subtitles_data,
+                    "preview_video_url": preview_url,
+                    "webpage_url": info.get('webpage_url', url),
                     "cached": False
                 }
 
                 info_cache[url] = {"timestamp": current_time, "data": result_data}
                 return result_data
 
-            # Single Video/Audio Extraction
-            raw_formats = info.get('formats', [])
-            audio_formats = []
-            video_formats = []
-            seen_resolutions = set()
-            preview_url = None
+        except yt_dlp.utils.DownloadError as e:
+            last_error = str(e)
+            logger.warning(f"yt-dlp falhou com clients {clients}: {last_error}")
+            if "Private video" in last_error:
+                raise HTTPException(status_code=400, detail="Este vídeo é privado.")
+            if "Video unavailable" in last_error or "removed" in last_error:
+                raise HTTPException(status_code=400, detail="Vídeo indisponível ou removido.")
+            if "Unsupported URL" in last_error:
+                raise HTTPException(status_code=400, detail="URL não suportada. Tente um link do YouTube, SoundCloud, etc.")
+            if "Sign in" in last_error or "bot" in last_error.lower() or "403" in last_error:
+                logger.info("Bot detection / 403 detectado, tentando próximo player client...")
+                continue
+            continue
+        except Exception as e:
+            last_error = str(e)
+            logger.error(f"Erro inesperado com clients {clients}: {last_error}")
+            continue
 
-            for f in raw_formats:
-                fmt_id = f.get('format_id')
-                ext = f.get('ext', 'mp4')
-                vcodec = f.get('vcodec', 'none')
-                acodec = f.get('acodec', 'none')
-                height = f.get('height')
-                filesize = f.get('filesize') or f.get('filesize_approx')
-                fps = f.get('fps')
-                direct_url = f.get('url')
-
-                filesize_mb = f"{round(filesize / (1024 * 1024), 1)} MB" if filesize else "Variável"
-                is_progressive = (vcodec != 'none') and (acodec != 'none')
-                is_audio_only = (vcodec == 'none') and (acodec != 'none')
-
-                if is_audio_only:
-                    audio_formats.append({
-                        "format_id": fmt_id,
-                        "ext": "mp3" if ext in ["m4a", "webm"] else ext,
-                        "quality": f"{f.get('abr', 128)} kbps" if f.get('abr') else "Áudio HD",
-                        "filesize": filesize_mb,
-                        "direct_url": direct_url,
-                        "type": "audio",
-                        "needs_merge": False,
-                        "note": f.get('format_note', 'Áudio Original')
-                    })
-                elif vcodec != 'none' and height:
-                    res_label = f"{height}p"
-                    if height >= 2160:
-                        res_label = "4K (2160p)"
-                    elif height >= 1440:
-                        res_label = "2K (1440p)"
-                    elif height >= 1080:
-                        res_label = "1080p FHD"
-                    elif height >= 720:
-                        res_label = "720p HD"
-
-                    if is_progressive and not preview_url and direct_url:
-                        preview_url = direct_url
-
-                    if res_label not in seen_resolutions:
-                        seen_resolutions.add(res_label)
-                        video_formats.append({
-                            "format_id": fmt_id,
-                            "ext": "mp4",
-                            "resolution": res_label,
-                            "raw_height": height,
-                            "fps": fps,
-                            "quality": f"{res_label} ({fps}fps)" if fps else res_label,
-                            "filesize": filesize_mb,
-                            "direct_url": direct_url,
-                            "type": "video",
-                            "needs_merge": not is_progressive
-                        })
-
-            video_formats.sort(key=lambda x: x.get('raw_height', 0), reverse=True)
-
-            if not preview_url and video_formats and video_formats[-1].get('direct_url'):
-                preview_url = video_formats[-1].get('direct_url')
-
-            # Cover Art (Thumbnails)
-            thumbnails_list = info.get('thumbnails', [])
-            maxres_thumbnail = info.get('thumbnail')
-            if thumbnails_list:
-                maxres_thumbnail = thumbnails_list[-1].get('url', maxres_thumbnail)
-
-            # Subtitles (Legendas)
-            subtitles_data = []
-            subs = info.get('subtitles', {}) or info.get('automatic_captions', {})
-            for lang, sub_list in subs.items():
-                if sub_list and isinstance(sub_list, list):
-                    for sub_item in sub_list:
-                        if sub_item.get('ext') in ['vtt', 'srt']:
-                            subtitles_data.append({
-                                "language": lang.upper(),
-                                "ext": sub_item.get('ext'),
-                                "url": sub_item.get('url')
-                            })
-                            break
-                if len(subtitles_data) >= 5:
-                    break
-
-            duration_secs = info.get('duration', 0) or 0
-            mins, secs = divmod(int(duration_secs), 60)
-            hrs, mins = divmod(mins, 60)
-            duration_str = f"{hrs:02d}:{mins:02d}:{secs:02d}" if hrs > 0 else f"{mins:02d}:{secs:02d}"
-
-            result_data = {
-                "is_playlist": False,
-                "id": info.get('id'),
-                "title": info.get('title', 'Mídia sem título'),
-                "thumbnail": info.get('thumbnail') or maxres_thumbnail,
-                "maxres_thumbnail": maxres_thumbnail,
-                "duration": duration_str,
-                "duration_seconds": duration_secs,
-                "uploader": info.get('uploader') or info.get('channel', 'Desconhecido'),
-                "view_count": info.get('view_count', 0),
-                "audio_formats": audio_formats[:4],
-                "video_formats": video_formats[:6],
-                "subtitles": subtitles_data,
-                "preview_video_url": preview_url,
-                "webpage_url": info.get('webpage_url', url),
-                "cached": False
-            }
-
-            info_cache[url] = {"timestamp": current_time, "data": result_data}
-            return result_data
-
-    except yt_dlp.utils.DownloadError as e:
-        error_msg = str(e)
-        logger.warning(f"yt-dlp DownloadError para {url}: {error_msg}")
-        if "Private video" in error_msg or "Sign in" in error_msg:
-            raise HTTPException(status_code=403, detail="Este vídeo é privado ou requer login.")
-        if "Video unavailable" in error_msg or "removed" in error_msg:
-            raise HTTPException(status_code=404, detail="Vídeo indisponível ou removido.")
-        if "Unsupported URL" in error_msg:
-            raise HTTPException(status_code=400, detail="URL não suportada. Tente um link do YouTube, SoundCloud, etc.")
-        raise HTTPException(status_code=422, detail="Não foi possível processar esta mídia. Verifique a URL e tente novamente.")
-    except Exception as e:
-        logger.error(f"Erro inesperado ao processar URL {url}: {str(e)}")
-        raise HTTPException(status_code=500, detail="Erro interno do servidor. Tente novamente em instantes.")
+    # All clients failed
+    logger.error(f"Todos os player clients falharam para {url}: {last_error}")
+    raise HTTPException(
+        status_code=400,
+        detail="Não foi possível processar esta mídia. Verifique se a URL é válida ou tente novamente em alguns instantes."
+    )
 
 @app.post("/api/trim")
 def trim_media(req: TrimRequest):
