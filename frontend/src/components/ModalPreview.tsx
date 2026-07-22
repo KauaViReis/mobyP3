@@ -16,6 +16,7 @@ interface ModalPreviewProps {
   webpageUrl: string;
   format: FormatItem;
   subtitles?: SubtitleItem[];
+  backendUrl?: string;
   onClose: () => void;
   onTriggerToast: (msg: string) => void;
 }
@@ -28,12 +29,15 @@ export default function ModalPreview({
   webpageUrl,
   format,
   subtitles = [],
+  backendUrl = 'http://127.0.0.1:8000',
   onClose,
   onTriggerToast
 }: ModalPreviewProps) {
   const [downloading, setDownloading] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
+
+  const apiBase = backendUrl.replace(/\/$/, '');
 
   // Trimming State (Option B)
   const [activeTab, setActiveTab] = useState<'preview' | 'trim' | 'extras'>('preview');
@@ -56,7 +60,7 @@ export default function ModalPreview({
     onTriggerToast(`Cortando trecho de ${startTime}s até ${endTime}s...`);
 
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/trim', {
+      const res = await fetch(`${apiBase}/api/trim`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -101,7 +105,7 @@ export default function ModalPreview({
       setDownloadProgress(50);
 
       try {
-        const res = await fetch('http://127.0.0.1:8000/api/download-merge', {
+        const res = await fetch(`${apiBase}/api/download-merge`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -129,7 +133,7 @@ export default function ModalPreview({
       } catch {
         // Fallback to /api/download endpoint fetch
         try {
-          const downloadApiUrl = `http://127.0.0.1:8000/api/download?url=${encodeURIComponent(targetUrl)}&filename=${encodeURIComponent(cleanFileName)}`;
+          const downloadApiUrl = `${apiBase}/api/download?url=${encodeURIComponent(targetUrl)}&filename=${encodeURIComponent(cleanFileName)}`;
           const res = await fetch(downloadApiUrl);
           if (!res.ok) throw new Error("Erro no download direto");
 
@@ -157,7 +161,7 @@ export default function ModalPreview({
         setDownloadProgress(40);
         if (!targetUrl) throw new Error("URL direta não disponível");
 
-        const downloadApiUrl = `http://127.0.0.1:8000/api/download?url=${encodeURIComponent(targetUrl)}&filename=${encodeURIComponent(cleanFileName)}`;
+        const downloadApiUrl = `${apiBase}/api/download?url=${encodeURIComponent(targetUrl)}&filename=${encodeURIComponent(cleanFileName)}`;
         const res = await fetch(downloadApiUrl);
         setDownloadProgress(75);
 

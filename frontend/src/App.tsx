@@ -43,7 +43,11 @@ interface MediaInfo {
   audio_preview_url?: string;
 }
 
-const BACKEND_URL = 'http://127.0.0.1:8000';
+const BACKEND_URL = (
+  import.meta.env.VITE_BACKEND_URL || 
+  import.meta.env.VITE_API_URL || 
+  'http://127.0.0.1:8000'
+).replace(/\/$/, '');
 
 export default function App() {
   const { sfxEnabled, toggleSFX, playClick, playSuccess, playError, playLoadingSound } = useSFX();
@@ -104,8 +108,11 @@ export default function App() {
   };
 
   const checkHealth = async () => {
+    const isProduction = Boolean(import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_URL);
+    const healthTimeout = isProduction ? 45000 : 8000;
+
     try {
-      const res = await fetch(`${BACKEND_URL}/health`, { signal: AbortSignal.timeout(8000) });
+      const res = await fetch(`${BACKEND_URL}/health`, { signal: AbortSignal.timeout(healthTimeout) });
       if (res.ok) {
         setBackendStatus('ready');
         setMobyState('sleeping');
@@ -438,6 +445,7 @@ export default function App() {
             webpageUrl={mediaInfo.webpage_url || urlInput}
             format={selectedFormat}
             subtitles={mediaInfo.subtitles}
+            backendUrl={BACKEND_URL}
             onClose={() => { playClick(); setSelectedFormat(null); }}
             onTriggerToast={(msg) => setToastMsg(msg)}
           />
