@@ -1,0 +1,7 @@
+{
+  "name": "mobyp3-root",
+  "private": true,
+  "scripts": {
+    "build": "cd frontend && npm run build"
+  }
+}
