@@ -52,6 +52,8 @@ YTDL_BASE_OPTS = {
     'quiet': True,
     'no_warnings': True,
     'nocheckcertificate': True,
+    'socket_timeout': 10,
+    'geo_bypass': True,
     'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
 }
 
@@ -85,7 +87,8 @@ def get_video_info(req: InfoRequest):
 
     ydl_opts = {
         **YTDL_BASE_OPTS,
-        'extract_flat': False,
+        'extract_flat': 'in_playlist',
+        'playlistend': 20,
         'skip_download': True,
         'writesubtitles': True,
         'writeautomaticsub': True,

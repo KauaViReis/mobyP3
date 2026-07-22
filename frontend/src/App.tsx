@@ -142,6 +142,7 @@ export default function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: urlInput.trim() }),
+        signal: AbortSignal.timeout(12000)
       });
 
       if (!res.ok) {
