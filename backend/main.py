@@ -326,7 +326,10 @@ def merge_and_download(req: DownloadRequest):
 def proxy_download(url: str = Query(...), filename: str = Query("mobyP3-media.mp4")):
     """Proxy streaming endpoint for direct download"""
     try:
-        req = requests.get(url, stream=True, headers=YTDL_BASE_OPTS)
+        headers = {
+            "User-Agent": YTDL_BASE_OPTS.get("user_agent", "Mozilla/5.0")
+        }
+        req = requests.get(url, stream=True, headers=headers, timeout=30)
         return StreamingResponse(
             req.iter_content(chunk_size=65536),
             media_type="application/octet-stream",
