@@ -3,10 +3,29 @@ import { useState, useEffect, useRef } from 'react';
 export function useSFX() {
   const [sfxEnabled, setSfxEnabled] = useState(true);
   const audioCtxRef = useRef<AudioContext | null>(null);
+  const userInteractedRef = useRef(false);
 
   useEffect(() => {
     const saved = localStorage.getItem('mobyp3_sfx');
     if (saved !== null) setSfxEnabled(JSON.parse(saved));
+
+    const markInteracted = () => {
+      userInteractedRef.current = true;
+      // Resume contexto existente caso tenha sido criado antes do gesto
+      if (audioCtxRef.current?.state === 'suspended') {
+        audioCtxRef.current.resume();
+      }
+    };
+
+    document.addEventListener('click', markInteracted, { once: true });
+    document.addEventListener('touchstart', markInteracted, { once: true });
+    document.addEventListener('keydown', markInteracted, { once: true });
+
+    return () => {
+      document.removeEventListener('click', markInteracted);
+      document.removeEventListener('touchstart', markInteracted);
+      document.removeEventListener('keydown', markInteracted);
+    };
   }, []);
 
   const toggleSFX = () => {
@@ -18,11 +37,12 @@ export function useSFX() {
   };
 
   const getAudioContext = () => {
+    if (!userInteractedRef.current) return null;
     if (!audioCtxRef.current) {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       if (AudioCtx) audioCtxRef.current = new AudioCtx();
     }
-    if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
+    if (audioCtxRef.current?.state === 'suspended') {
       audioCtxRef.current.resume();
     }
     return audioCtxRef.current;

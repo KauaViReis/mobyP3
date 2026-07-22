@@ -32,25 +32,24 @@ export default function BootScreen({ onBootComplete, backendUrl }: BootScreenPro
       // Step 2: Ping backend health endpoint
       try {
         const isRemoteBackend = backendUrl.startsWith('https://') || (!backendUrl.includes('localhost') && !backendUrl.includes('127.0.0.1'));
-        const healthTimeout = isRemoteBackend ? 45000 : 8000;
+        const healthTimeout = isRemoteBackend ? 60000 : 8000;
         const res = await fetch(`${backendUrl}/health`, { signal: AbortSignal.timeout(healthTimeout) });
         if (res.ok && isMounted) {
           setStatusMsg("Motor Pronto! Licensed by BRUH LTDA.");
         } else if (isMounted) {
-          setStatusMsg("Servidor em repouso. Ativando Modo Demo...");
+          setStatusMsg("Servidor em repouso. Reconectando...");
         }
       } catch {
         if (isMounted) {
-          setStatusMsg("Modo de alta performance ativo.");
+          setStatusMsg("Conectando ao servidor...");
         }
       }
 
-      // Step 3: Complete progress bar, play Y2K boot chime & unlock main UI
+      // Step 3: Complete progress bar & unlock main UI
       setTimeout(() => {
         if (isMounted) {
           setProgress(100);
           setReady(true);
-          playBootSound();
           setTimeout(() => {
             onBootComplete();
           }, 800);
@@ -68,6 +67,7 @@ export default function BootScreen({ onBootComplete, backendUrl }: BootScreenPro
 
   const handleScreenClick = () => {
     playBootSound();
+    if (ready) onBootComplete();
   };
 
   return (

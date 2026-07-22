@@ -46,15 +46,11 @@ interface MediaInfo {
 const getBackendUrl = () => {
   const envUrl = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_URL;
   if (envUrl) {
-    const cleaned = envUrl.replace(/\/$/, '');
-    console.log('[MobyP3] Backend URL (env):', cleaned);
-    return cleaned;
+    return envUrl.replace(/\/$/, '');
   }
   if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-    console.log('[MobyP3] Backend URL (fallback prod):', 'https://mobyp3-backend.onrender.com');
     return 'https://mobyp3-backend.onrender.com';
   }
-  console.log('[MobyP3] Backend URL (local):', 'http://127.0.0.1:8000');
   return 'http://127.0.0.1:8000';
 };
 
@@ -124,17 +120,14 @@ export default function App() {
 
     for (let attempt = 0; attempt <= retries; attempt++) {
       try {
-        console.log(`[MobyP3] Health check attempt ${attempt + 1}/${retries + 1} → ${BACKEND_URL}/health`);
         const res = await fetch(`${BACKEND_URL}/health`, { signal: AbortSignal.timeout(healthTimeout) });
         if (res.ok) {
-          console.log('[MobyP3] Backend ONLINE ✓');
           setBackendStatus('ready');
           setMobyState('sleeping');
           setMobySpeech('Motor v3.0 Pro Pronto! Cole a URL ou recarregue do Memory Card.');
           return true;
         }
-      } catch (err) {
-        console.warn(`[MobyP3] Health check attempt ${attempt + 1} failed:`, err);
+      } catch {
         if (attempt < retries) {
           await new Promise(r => setTimeout(r, 3000));
         }
