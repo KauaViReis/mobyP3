@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Sparkles, CheckCircle2 } from 'lucide-react';
+import { useSFX } from '../hooks/useSFX';
 
 interface BootScreenProps {
   onBootComplete: () => void;
@@ -7,6 +8,7 @@ interface BootScreenProps {
 }
 
 export default function BootScreen({ onBootComplete, backendUrl }: BootScreenProps) {
+  const { playBootSound } = useSFX();
   const [progress, setProgress] = useState(0);
   const [statusMsg, setStatusMsg] = useState("Conectando ao Moby Engine...");
   const [ready, setReady] = useState(false);
@@ -41,11 +43,12 @@ export default function BootScreen({ onBootComplete, backendUrl }: BootScreenPro
         }
       }
 
-      // Step 3: Complete progress bar & unlock main UI
+      // Step 3: Complete progress bar, play Y2K boot chime & unlock main UI
       setTimeout(() => {
         if (isMounted) {
           setProgress(100);
           setReady(true);
+          playBootSound();
           setTimeout(() => {
             onBootComplete();
           }, 800);
@@ -61,9 +64,16 @@ export default function BootScreen({ onBootComplete, backendUrl }: BootScreenPro
     };
   }, [backendUrl, onBootComplete]);
 
+  const handleScreenClick = () => {
+    playBootSound();
+  };
+
   return (
-    <div className="fixed inset-0 z-50 bg-[#0e1b38] text-white flex flex-col items-center justify-between p-6 select-none font-sans overflow-hidden">
-      
+    <div 
+      onClick={handleScreenClick}
+      className="fixed inset-0 z-50 bg-[#0e1b38] text-white flex flex-col items-center justify-between p-6 select-none font-sans overflow-hidden cursor-pointer"
+    >
+
       {/* Background Pixel Stars */}
       <div className="absolute inset-0 opacity-40 pointer-events-none">
         <div className="absolute top-12 left-1/4 text-yellow-300 animate-pulse text-xs">✦</div>
@@ -82,7 +92,7 @@ export default function BootScreen({ onBootComplete, backendUrl }: BootScreenPro
 
       {/* Center Mascot & Logo */}
       <div className="flex flex-col items-center justify-center space-y-6 max-w-md my-auto text-center">
-        
+
         {/* Animated Floating Whale */}
         <div className="relative group">
           <div className="w-32 h-32 bg-chrome-indigo/80 rounded-2xl bevel-card flex items-center justify-center relative shadow-[0_0_30px_rgba(139,161,212,0.4)] animate-bounce">
@@ -102,7 +112,7 @@ export default function BootScreen({ onBootComplete, backendUrl }: BootScreenPro
             moby<span className="text-primary italic">P3</span>
           </h1>
           <p className="text-xs font-pixel text-amber tracking-widest uppercase">
-            Y2K Console Hardware Edition
+            Navegando Pela Internet
           </p>
         </div>
 
@@ -120,13 +130,12 @@ export default function BootScreen({ onBootComplete, backendUrl }: BootScreenPro
               return (
                 <div
                   key={i}
-                  className={`flex-1 h-full rounded-xs transition-colors duration-150 ${
-                    isFilled
+                  className={`flex-1 h-full rounded-xs transition-colors duration-150 ${isFilled
                       ? i > 14
                         ? 'bg-signal shadow-[0_0_8px_#f68d1f]'
                         : 'bg-amber shadow-[0_0_6px_#ecab37]'
                       : 'bg-gray-800'
-                  }`}
+                    }`}
                 />
               );
             })}
