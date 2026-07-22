@@ -250,9 +250,19 @@ def get_video_info(req: InfoRequest):
             info_cache[url] = {"timestamp": current_time, "data": result_data}
             return result_data
 
+    except yt_dlp.utils.DownloadError as e:
+        error_msg = str(e)
+        logger.warning(f"yt-dlp DownloadError para {url}: {error_msg}")
+        if "Private video" in error_msg or "Sign in" in error_msg:
+            raise HTTPException(status_code=403, detail="Este vídeo é privado ou requer login.")
+        if "Video unavailable" in error_msg or "removed" in error_msg:
+            raise HTTPException(status_code=404, detail="Vídeo indisponível ou removido.")
+        if "Unsupported URL" in error_msg:
+            raise HTTPException(status_code=400, detail="URL não suportada. Tente um link do YouTube, SoundCloud, etc.")
+        raise HTTPException(status_code=422, detail="Não foi possível processar esta mídia. Verifique a URL e tente novamente.")
     except Exception as e:
-        logger.error(f"Erro ao processar URL {url}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Erro ao extrair mídia: {str(e)}")
+        logger.error(f"Erro inesperado ao processar URL {url}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Erro interno do servidor. Tente novamente em instantes.")
 
 @app.post("/api/trim")
 def trim_media(req: TrimRequest):
