@@ -44,15 +44,17 @@ interface MediaInfo {
 }
 
 const getBackendUrl = () => {
-  if (import.meta.env.VITE_BACKEND_URL) {
-    return import.meta.env.VITE_BACKEND_URL.replace(/\/$/, '');
-  }
-  if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL.replace(/\/$/, '');
+  const envUrl = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_URL;
+  if (envUrl) {
+    const cleaned = envUrl.replace(/\/$/, '');
+    console.log('[MobyP3] Backend URL (env):', cleaned);
+    return cleaned;
   }
   if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    console.log('[MobyP3] Backend URL (fallback prod):', 'https://mobyp3-backend.onrender.com');
     return 'https://mobyp3-backend.onrender.com';
   }
+  console.log('[MobyP3] Backend URL (local):', 'http://127.0.0.1:8000');
   return 'http://127.0.0.1:8000';
 };
 
@@ -116,26 +118,32 @@ export default function App() {
     localStorage.removeItem('mobyp3_memory_card');
   };
 
-  const checkHealth = async () => {
+  const checkHealth = async (retries = 2): Promise<boolean> => {
     const isRemoteBackend = BACKEND_URL.startsWith('https://') || (!BACKEND_URL.includes('localhost') && !BACKEND_URL.includes('127.0.0.1'));
-    const healthTimeout = isRemoteBackend ? 45000 : 8000;
+    const healthTimeout = isRemoteBackend ? 60000 : 8000;
 
-    try {
-      const res = await fetch(`${BACKEND_URL}/health`, { signal: AbortSignal.timeout(healthTimeout) });
-      if (res.ok) {
-        setBackendStatus('ready');
-        setMobyState('sleeping');
-        setMobySpeech('Motor v3.0 Pro Pronto! Cole a URL ou recarregue do Memory Card.');
-      } else {
-        setBackendStatus('offline');
-        setMobyState('sleeping');
-        setMobySpeech('Servidor em standby. Modo Pro Demo ativado!');
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        console.log(`[MobyP3] Health check attempt ${attempt + 1}/${retries + 1} → ${BACKEND_URL}/health`);
+        const res = await fetch(`${BACKEND_URL}/health`, { signal: AbortSignal.timeout(healthTimeout) });
+        if (res.ok) {
+          console.log('[MobyP3] Backend ONLINE ✓');
+          setBackendStatus('ready');
+          setMobyState('sleeping');
+          setMobySpeech('Motor v3.0 Pro Pronto! Cole a URL ou recarregue do Memory Card.');
+          return true;
+        }
+      } catch (err) {
+        console.warn(`[MobyP3] Health check attempt ${attempt + 1} failed:`, err);
+        if (attempt < retries) {
+          await new Promise(r => setTimeout(r, 3000));
+        }
       }
-    } catch {
-      setBackendStatus('offline');
-      setMobyState('sleeping');
-      setMobySpeech('Modo de alta performance ativo.');
     }
+    setBackendStatus('offline');
+    setMobyState('sleeping');
+    setMobySpeech('Servidor em standby. Reconectando automaticamente...');
+    return false;
   };
 
   const handleFetchMedia = async (e?: React.FormEvent) => {
@@ -154,11 +162,20 @@ export default function App() {
     setMobySpeech('Escaneando link (verificando se é vídeo individual ou playlist)...');
 
     try {
+      // Se backend offline, tenta acordar antes de buscar mídia
+      if (backendStatus === 'offline') {
+        setMobySpeech('Acordando o servidor... Aguarde um momento.');
+        const woke = await checkHealth(1);
+        if (!woke) {
+          throw new Error('Servidor indisponível. Tente novamente em alguns segundos.');
+        }
+      }
+
       const res = await fetch(`${BACKEND_URL}/api/info`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: urlInput.trim() }),
-        signal: AbortSignal.timeout(12000)
+        signal: AbortSignal.timeout(30000)
       });
 
       if (!res.ok) {
@@ -181,53 +198,14 @@ export default function App() {
         saveToMemoryCard({ title: data.title || 'Mídia Processada', url: urlInput, platform: 'YOUTUBE' });
       }
     } catch (err: any) {
-      if (backendStatus === 'offline') {
-        playSuccess();
-        if (urlInput.includes('list') || urlInput.includes('playlist')) {
-          setMediaInfo({
-            is_playlist: true,
-            playlist_title: "Top Hits Y2K Hardware (Demo Playlist)",
-            playlist_items: [
-              { id: "p1", title: "Retro Cyber Synth - Main Theme", thumbnail: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=300", duration: "03:15", uploader: "BRUH Sound Labs", webpage_url: urlInput },
-              { id: "p2", title: "Ocarina Wave - Chiptune Mix", thumbnail: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=300", duration: "04:20", uploader: "BRUH Sound Labs", webpage_url: urlInput }
-            ],
-            webpage_url: urlInput
-          });
-          setMobyState('ready');
-          setMobySpeech('Playlist de demonstração reconhecida!');
-          saveToMemoryCard({ title: "Top Hits Y2K Hardware (Demo Playlist)", url: urlInput, platform: "PLAYLIST" });
-        } else {
-          setMediaInfo({
-            is_playlist: false,
-            id: "moby-demo-01",
-            title: "Moby Dick & The Blue Waves - Y2K 4K Ultra Theme (Licensed by BRUH LTDA)",
-            thumbnail: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=800&auto=format&fit=crop",
-            maxres_thumbnail: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1200&auto=format&fit=crop",
-            duration: "03:45",
-            uploader: "BRUH 2001 Audio Labs",
-            audio_formats: [
-              { format_id: "a1", ext: "mp3", quality: "320 kbps (Áudio HD)", filesize: "8.6 MB", type: "audio", needs_merge: false, direct_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3", note: "Qualidade Máxima MP3" }
-            ],
-            video_formats: [
-              { format_id: "v4k", ext: "mp4", resolution: "4K (2160p)", fps: 60, quality: "4K Ultra HD (60fps)", filesize: "185.0 MB", type: "video", needs_merge: true, direct_url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4" },
-              { format_id: "v1080", ext: "mp4", resolution: "1080p FHD", fps: 60, quality: "FHD 1080p (60fps)", filesize: "42.1 MB", type: "video", needs_merge: true, direct_url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4" }
-            ],
-            subtitles: [
-              { language: "PORTUGUÊS (PT)", ext: "srt", url: "https://www.w3.org/TR/YY/subtitle.vtt" }
-            ],
-            preview_video_url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
-            webpage_url: urlInput
-          });
-          setMobyState('ready');
-          setMobySpeech('Mídia pronta no Modo Demo Pro!');
-          saveToMemoryCard({ title: "Moby Dick & The Blue Waves - Y2K 4K Ultra Theme", url: urlInput, platform: "YOUTUBE" });
-        }
-      } else {
-        playError();
-        setErrorMsg(err.message || 'Erro ao conectar com a Moby Engine.');
-        setMobyState('error');
-        setMobySpeech('Acho que essa URL está incorreta ou o conteúdo é privado.');
-      }
+      playError();
+      const message = err.message || 'Erro ao conectar com a Moby Engine.';
+      setErrorMsg(message);
+      setMobyState('error');
+      setMobySpeech(message.includes('indisponível')
+        ? 'Servidor está acordando... Tente novamente em instantes!'
+        : 'Acho que essa URL está incorreta ou o conteúdo é privado.'
+      );
     } finally {
       setLoading(false);
     }
