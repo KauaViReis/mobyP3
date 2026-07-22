@@ -31,8 +31,8 @@ export default function BootScreen({ onBootComplete, backendUrl }: BootScreenPro
 
       // Step 2: Ping backend health endpoint
       try {
-        const isProduction = Boolean(import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_URL);
-        const healthTimeout = isProduction ? 45000 : 8000;
+        const isRemoteBackend = backendUrl.startsWith('https://') || (!backendUrl.includes('localhost') && !backendUrl.includes('127.0.0.1'));
+        const healthTimeout = isRemoteBackend ? 45000 : 8000;
         const res = await fetch(`${backendUrl}/health`, { signal: AbortSignal.timeout(healthTimeout) });
         if (res.ok && isMounted) {
           setStatusMsg("Motor Pronto! Licensed by BRUH LTDA.");

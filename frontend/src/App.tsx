@@ -117,8 +117,8 @@ export default function App() {
   };
 
   const checkHealth = async () => {
-    const isProduction = Boolean(import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_URL);
-    const healthTimeout = isProduction ? 45000 : 8000;
+    const isRemoteBackend = BACKEND_URL.startsWith('https://') || (!BACKEND_URL.includes('localhost') && !BACKEND_URL.includes('127.0.0.1'));
+    const healthTimeout = isRemoteBackend ? 45000 : 8000;
 
     try {
       const res = await fetch(`${BACKEND_URL}/health`, { signal: AbortSignal.timeout(healthTimeout) });
