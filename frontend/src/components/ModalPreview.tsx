@@ -32,6 +32,7 @@ export default function ModalPreview({
   onTriggerToast
 }: ModalPreviewProps) {
   const [downloading, setDownloading] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
 
   // Trimming State (Option B)
@@ -51,10 +52,11 @@ export default function ModalPreview({
     }
 
     setDownloading(true);
+    setIsDownloading(true);
     onTriggerToast(`Cortando trecho de ${startTime}s até ${endTime}s...`);
 
     try {
-      const res = await fetch('http://localhost:8000/api/trim', {
+      const res = await fetch('http://127.0.0.1:8000/api/trim', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -79,23 +81,27 @@ export default function ModalPreview({
 
       onTriggerToast("Trecho cortado com sucesso!");
     } catch {
-      onTriggerToast("Download do trecho cortado iniciado.");
+      onTriggerToast("Erro ao processar corte do áudio/vídeo.");
     } finally {
       setDownloading(false);
+      setIsDownloading(false);
     }
   };
 
   // Option A & Full Download
   const handleDownload = async () => {
+    setIsDownloading(true);
     setDownloading(true);
     setDownloadProgress(20);
+
+    const targetUrl = format.direct_url || webpageUrl;
 
     if (format.needs_merge) {
       onTriggerToast(`Iniciando mesclagem HD (${format.resolution}) no servidor...`);
       setDownloadProgress(50);
 
       try {
-        const res = await fetch('http://localhost:8000/api/download-merge', {
+        const res = await fetch('http://127.0.0.1:8000/api/download-merge', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -121,21 +127,59 @@ export default function ModalPreview({
 
         onTriggerToast(`Vídeo ${format.resolution} baixado com áudio!`);
       } catch {
-        const downloadUrl = `http://localhost:8000/api/download?url=${encodeURIComponent(format.direct_url || webpageUrl)}&filename=${encodeURIComponent(cleanFileName)}`;
-        window.location.href = downloadUrl;
-        onTriggerToast(`Download direto iniciado!`);
+        // Fallback to /api/download endpoint fetch
+        try {
+          const downloadApiUrl = `http://127.0.0.1:8000/api/download?url=${encodeURIComponent(targetUrl)}&filename=${encodeURIComponent(cleanFileName)}`;
+          const res = await fetch(downloadApiUrl);
+          if (!res.ok) throw new Error("Erro no download direto");
+
+          const blob = await res.blob();
+          const blobUrl = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = blobUrl;
+          a.download = cleanFileName;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(blobUrl);
+
+          onTriggerToast(`Vídeo baixado diretamente!`);
+        } catch (err: any) {
+          onTriggerToast(`Erro ao baixar: ${err.message || 'Falha no download'}`);
+        }
       } finally {
         setDownloading(false);
+        setIsDownloading(false);
         setDownloadProgress(0);
       }
     } else {
       try {
         setDownloadProgress(40);
-        const targetUrl = format.direct_url;
         if (!targetUrl) throw new Error("URL direta não disponível");
 
-        const res = await fetch(targetUrl);
+        const downloadApiUrl = `http://127.0.0.1:8000/api/download?url=${encodeURIComponent(targetUrl)}&filename=${encodeURIComponent(cleanFileName)}`;
+        const res = await fetch(downloadApiUrl);
         setDownloadProgress(75);
+
+        if (!res.ok) {
+          // Fallback to direct fetch
+          const directRes = await fetch(targetUrl);
+          if (!directRes.ok) throw new Error("Não foi possível acessar o arquivo de mídia");
+          const blob = await directRes.blob();
+          setDownloadProgress(95);
+
+          const blobUrl = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = blobUrl;
+          a.download = cleanFileName;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(blobUrl);
+
+          onTriggerToast(`Arquivo "${cleanFileName}" salvo!`);
+          return;
+        }
 
         const blob = await res.blob();
         setDownloadProgress(95);
@@ -149,13 +193,12 @@ export default function ModalPreview({
         a.remove();
         URL.revokeObjectURL(blobUrl);
 
-        onTriggerToast(`Arquivo "${cleanFileName}" salvo!`);
-      } catch {
-        const downloadUrl = `http://localhost:8000/api/download?url=${encodeURIComponent(format.direct_url || webpageUrl)}&filename=${encodeURIComponent(cleanFileName)}`;
-        window.location.href = downloadUrl;
-        onTriggerToast(`Download via backend iniciado!`);
+        onTriggerToast(`Arquivo "${cleanFileName}" salvo com sucesso!`);
+      } catch (err: any) {
+        onTriggerToast(`Falha ao baixar mídia: ${err.message || 'Erro de conexão'}`);
       } finally {
         setDownloading(false);
+        setIsDownloading(false);
         setDownloadProgress(0);
       }
     }
@@ -244,13 +287,13 @@ export default function ModalPreview({
               <div className="flex flex-col sm:flex-row gap-3 pt-2">
                 <button
                   onClick={handleDownload}
-                  disabled={downloading}
-                  className="flex-1 bg-signal hover:bg-signal/90 text-white font-bold text-sm py-3 px-6 rounded-sm bevel-card flex items-center justify-center gap-2 shadow-bevel-btn uppercase tracking-wider disabled:opacity-75"
+                  disabled={isDownloading || downloading}
+                  className="flex-1 bg-signal hover:bg-signal/90 text-white font-bold text-sm py-3 px-6 rounded-sm bevel-card flex items-center justify-center gap-2 shadow-bevel-btn uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {downloading ? (
+                  {isDownloading || downloading ? (
                     <>
                       <RefreshCw className="w-5 h-5 animate-spin" />
-                      <span>{format.needs_merge ? 'MESCLANDO HD...' : `BAIXANDO (${downloadProgress}%)`}</span>
+                      <span>⏳ BAIXANDO...</span>
                     </>
                   ) : (
                     <>
