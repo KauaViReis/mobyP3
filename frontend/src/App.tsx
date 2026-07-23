@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Music, 
   Video, 
@@ -72,7 +72,7 @@ export default function App() {
   const [mobySpeech, setMobySpeech] = useState<string | undefined>(undefined);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   
-  // Tutorial Modal State
+  // Tutorial & Arcade Modals
   const [showTutorialModal, setShowTutorialModal] = useState(false);
   const [showArcadeModal, setShowArcadeModal] = useState(false);
 
@@ -82,6 +82,9 @@ export default function App() {
   // Selected format for ModalPreview
   const [selectedFormat, setSelectedFormat] = useState<FormatItem | null>(null);
   const [backendStatus, setBackendStatus] = useState<'ready' | 'offline'>('offline');
+
+  // AbortController for cancelling fetch requests
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     checkHealth();
@@ -144,6 +147,28 @@ export default function App() {
     return false;
   };
 
+  const handleCancelSearch = () => {
+    playClick();
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setLoading(false);
+    setErrorMsg(null);
+    setMobyState('sleeping');
+    setMobySpeech('Busca cancelada pelo usuário. Insira uma nova URL.');
+    setToastMsg('Busca cancelada!');
+  };
+
+  const handleClearSearch = () => {
+    playClick();
+    setUrlInput('');
+    setMediaInfo(null);
+    setErrorMsg(null);
+    setMobyState('sleeping');
+    setMobySpeech('Campo limpo. Pronta para receber um novo link.');
+  };
+
   const handleFetchMedia = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     playClick();
@@ -159,6 +184,9 @@ export default function App() {
     setMobyState('searching');
     setMobySpeech('Escaneando link (verificando se é vídeo individual ou playlist)...');
 
+    // Create fresh AbortController
+    abortControllerRef.current = new AbortController();
+
     try {
       if (backendStatus === 'offline') {
         setMobySpeech('Acordando o servidor... Aguarde um momento.');
@@ -172,7 +200,7 @@ export default function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: urlInput.trim() }),
-        signal: AbortSignal.timeout(30000)
+        signal: abortControllerRef.current.signal
       });
 
       if (!res.ok) {
@@ -190,11 +218,14 @@ export default function App() {
         setToastMsg(`Playlist com ${data.playlist_items?.length} faixas reconhecida!`);
         saveToMemoryCard({ title: data.playlist_title || 'Playlist', url: urlInput, platform: 'PLAYLIST' });
       } else {
-        setMobySpeech('Mídia e resoluções HD/4K localizadas com sucesso!');
+        setMobySpeech('Mídia e resoluções HD/4K localizadas com sucesso! Veja as opções no Dip Switch abaixo.');
         setToastMsg(`Mídia extraída com sucesso!`);
         saveToMemoryCard({ title: data.title || 'Mídia Processada', url: urlInput, platform: 'YOUTUBE' });
       }
     } catch (err: any) {
+      if (err.name === 'AbortError') {
+        return; // Handled in handleCancelSearch
+      }
       playError();
       const message = err.message || 'Erro ao conectar com a Moby Engine.';
       setErrorMsg(message);
@@ -205,6 +236,7 @@ export default function App() {
       );
     } finally {
       setLoading(false);
+      abortControllerRef.current = null;
     }
   };
 
@@ -331,14 +363,20 @@ export default function App() {
               </span>
             </div>
 
-            {/* IN-CHASSIS PROGRESS STATUS BANNER (No Top-Screen Overflow) */}
+            {/* IN-CHASSIS PROGRESS STATUS BANNER WITH CANCEL OPTION */}
             {loading && (
-              <div className="mb-3 bg-signal text-white px-3.5 py-2.5 rounded-sm bevel-card text-xs font-bold flex items-center justify-between animate-pulse shadow-md border border-carbon">
+              <div className="mb-3 bg-signal text-white px-3.5 py-2.5 rounded-sm bevel-card text-xs font-bold flex flex-wrap items-center justify-between gap-2 animate-pulse shadow-md border border-carbon">
                 <div className="flex items-center gap-2">
                   <RefreshCw className="w-4 h-4 animate-spin" />
                   <span>ESCANEANDO MÍDIA EM ALTA VELOCIDADE...</span>
                 </div>
-                <span className="font-pixel text-[10px] bg-carbon text-amber px-2 py-0.5 rounded">mobyP3 BUSCA</span>
+                <button
+                  type="button"
+                  onClick={handleCancelSearch}
+                  className="bg-carbon text-amber hover:text-white px-2.5 py-1 rounded text-[10px] font-pixel border border-amber uppercase active:translate-y-0.5"
+                >
+                  [ ❌ CANCELAR BUSCA ]
+                </button>
               </div>
             )}
 
@@ -346,6 +384,8 @@ export default function App() {
               urlInput={urlInput}
               setUrlInput={setUrlInput}
               onSubmit={handleFetchMedia}
+              onClear={handleClearSearch}
+              onCancel={handleCancelSearch}
               loading={loading}
             />
 
@@ -362,14 +402,6 @@ export default function App() {
               </button>
             </div>
           </div>
-
-          {/* EXTRACTOR UI - DIP SWITCH FORMAT & QUALITY SELECTOR */}
-          <ExtractorUI
-            url={urlInput}
-            backendUrl={BACKEND_URL}
-            onTriggerToast={(msg) => setToastMsg(msg)}
-            playClick={playClick}
-          />
 
           {errorMsg && (
             <div className="bg-red-100 border-2 border-primary text-primary p-3 rounded-sm bevel-card flex items-center gap-2 text-xs font-bold">
@@ -398,6 +430,16 @@ export default function App() {
                 webpage_url: mediaInfo.webpage_url || urlInput,
                 audio_preview_url: mediaInfo.audio_preview_url
               }} />
+
+              {/* EXTRACTOR UI — DIP SWITCH DYNAMIC RESOLUTIONS SELECTOR (APPEARS AFTER LINK SEARCHED) */}
+              <ExtractorUI
+                url={urlInput}
+                backendUrl={BACKEND_URL}
+                mediaTitle={mediaInfo.title}
+                detectedVideoFormats={mediaInfo.video_formats}
+                onTriggerToast={(msg) => setToastMsg(msg)}
+                playClick={playClick}
+              />
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <DownloadColumn

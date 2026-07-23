@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Music, Video, Image as ImageIcon, Download, Sparkles, RefreshCw, Zap, Sliders, Radio, Activity } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Music, Video, Image as ImageIcon, Download, Sparkles, RefreshCw, Zap, Sliders } from 'lucide-react';
 
 export type MediaTypeCategory = 'audio' | 'video' | 'thumbnail';
 export type AudioFXPreset = 'none' | 'chiptune' | 'nightcore' | 'radio' | 'bassboost';
@@ -14,12 +14,14 @@ export interface ProcessOptions {
 interface ExtractorUIProps {
   url: string;
   backendUrl: string;
+  mediaTitle?: string;
+  detectedVideoFormats?: { format_id: string; resolution?: string; quality?: string }[];
   onTriggerToast: (msg: string) => void;
   playClick?: () => void;
 }
 
-export default function ExtractorUI({ url, backendUrl, onTriggerToast, playClick }: ExtractorUIProps) {
-  const [activeCategory, setActiveCategory] = useState<MediaTypeCategory>('audio');
+export default function ExtractorUI({ url, backendUrl, mediaTitle, detectedVideoFormats, onTriggerToast, playClick }: ExtractorUIProps) {
+  const [activeCategory, setActiveCategory] = useState<MediaTypeCategory>('video');
   
   // Format Selection State
   const [audioFormat, setAudioFormat] = useState<'mp3' | 'm4a'>('mp3');
@@ -31,6 +33,16 @@ export default function ExtractorUI({ url, backendUrl, onTriggerToast, playClick
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
+
+  // Set default video quality based on detected formats from backend
+  useEffect(() => {
+    if (detectedVideoFormats && detectedVideoFormats.length > 0) {
+      const topRes = detectedVideoFormats[0].resolution || detectedVideoFormats[0].quality || '';
+      if (topRes.includes('1080')) setVideoQuality('1080p');
+      else if (topRes.includes('720')) setVideoQuality('720p');
+      else if (topRes.includes('480') || topRes.includes('360')) setVideoQuality('480p');
+    }
+  }, [detectedVideoFormats]);
 
   const handleSelectCategory = (cat: MediaTypeCategory) => {
     if (playClick) playClick();
@@ -124,7 +136,7 @@ export default function ExtractorUI({ url, backendUrl, onTriggerToast, playClick
   };
 
   return (
-    <div className="bg-periwinkle p-4 sm:p-5 rounded-md bevel-chassis shadow-hard-drop space-y-4 max-w-full overflow-x-hidden">
+    <div className="bg-periwinkle p-4 sm:p-5 rounded-md bevel-chassis shadow-hard-drop space-y-4 max-w-full overflow-x-hidden border-2 border-chrome-indigo">
       
       {/* Header Dip Switch Bar */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b-2 border-chrome-indigo pb-3">
@@ -135,25 +147,19 @@ export default function ExtractorUI({ url, backendUrl, onTriggerToast, playClick
           </h2>
         </div>
         <span className="text-[10px] font-pixel bg-amber text-carbon px-2 py-0.5 rounded border border-carbon font-bold">
-          mobyP3 PRO ENGINE
+          {mediaTitle ? 'MÍDIA RECONHECIDA' : 'CONFIGURAÇÃO PRÉVIA'}
         </span>
       </div>
 
+      {mediaTitle && (
+        <div className="bg-surface px-3 py-2 rounded border border-chrome-indigo text-xs font-bold text-carbon flex items-center justify-between">
+          <span className="truncate max-w-md">🎵 {mediaTitle}</span>
+          <span className="text-[10px] text-green-700 font-pixel bg-green-100 px-2 py-0.5 rounded">PRONTO PARA EXTRAÇÃO</span>
+        </div>
+      )}
+
       {/* Category Tabs (Audio / Video / Thumbnail) */}
       <div className="grid grid-cols-3 gap-2">
-        <button
-          type="button"
-          onClick={() => handleSelectCategory('audio')}
-          className={`min-h-[48px] px-3 py-2 rounded-sm bevel-card font-bold text-xs flex items-center justify-center gap-1.5 transition-colors uppercase tracking-wider ${
-            activeCategory === 'audio'
-              ? 'bg-amber text-carbon shadow-bevel-btn ring-2 ring-carbon'
-              : 'bg-carbon text-gray-300 hover:bg-carbon/80'
-          }`}
-        >
-          <Music className="w-4 h-4 text-signal" />
-          <span className="truncate">🎵 ÁUDIO</span>
-        </button>
-
         <button
           type="button"
           onClick={() => handleSelectCategory('video')}
@@ -165,6 +171,19 @@ export default function ExtractorUI({ url, backendUrl, onTriggerToast, playClick
         >
           <Video className="w-4 h-4 text-amber" />
           <span className="truncate">🎬 VÍDEO</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handleSelectCategory('audio')}
+          className={`min-h-[48px] px-3 py-2 rounded-sm bevel-card font-bold text-xs flex items-center justify-center gap-1.5 transition-colors uppercase tracking-wider ${
+            activeCategory === 'audio'
+              ? 'bg-amber text-carbon shadow-bevel-btn ring-2 ring-carbon'
+              : 'bg-carbon text-gray-300 hover:bg-carbon/80'
+          }`}
+        >
+          <Music className="w-4 h-4 text-signal" />
+          <span className="truncate">🎵 ÁUDIO</span>
         </button>
 
         <button
@@ -184,7 +203,67 @@ export default function ExtractorUI({ url, backendUrl, onTriggerToast, playClick
       {/* Options Panel per Category */}
       <div className="bg-surface p-4 rounded-sm bevel-inset space-y-4">
         
-        {/* CATEGORY 1: AUDIO OPTIONS & RETRO FX SYNTHESIZER */}
+        {/* CATEGORY: VIDEO OPTIONS */}
+        {activeCategory === 'video' && (
+          <div className="space-y-3">
+            <div className="text-xs font-bold text-carbon uppercase flex items-center justify-between">
+              <span>Resolução Detectada (MP4 com Áudio Sincronizado):</span>
+              <span className="text-[10px] text-amber font-pixel">Mesclagem FFmpeg On-the-Fly</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => { if (playClick) playClick(); setVideoQuality('1080p'); }}
+                className={`min-h-[48px] p-2.5 rounded-sm border-2 text-left flex flex-col justify-center transition-all ${
+                  videoQuality === '1080p'
+                    ? 'border-signal bg-signal/10 text-carbon font-bold'
+                    : 'border-gray-300 bg-canvas text-gray-700 hover:border-chrome-indigo'
+                }`}
+              >
+                <div className="text-xs font-black flex items-center justify-between">
+                  <span>MP4 1080p</span>
+                  <span className="bg-amber text-carbon text-[9px] px-1 rounded font-pixel">FHD</span>
+                </div>
+                <span className="text-[10px] text-gray-500 font-medium">Alta Definição 1080p</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { if (playClick) playClick(); setVideoQuality('720p'); }}
+                className={`min-h-[48px] p-2.5 rounded-sm border-2 text-left flex flex-col justify-center transition-all ${
+                  videoQuality === '720p'
+                    ? 'border-signal bg-signal/10 text-carbon font-bold'
+                    : 'border-gray-300 bg-canvas text-gray-700 hover:border-chrome-indigo'
+                }`}
+              >
+                <div className="text-xs font-black flex items-center justify-between">
+                  <span>MP4 720p</span>
+                  <span className="bg-signal text-white text-[9px] px-1 rounded font-pixel">HD</span>
+                </div>
+                <span className="text-[10px] text-gray-500 font-medium">Qualidade HD Padrão</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { if (playClick) playClick(); setVideoQuality('480p'); }}
+                className={`min-h-[48px] p-2.5 rounded-sm border-2 text-left flex flex-col justify-center transition-all ${
+                  videoQuality === '480p'
+                    ? 'border-signal bg-signal/10 text-carbon font-bold'
+                    : 'border-gray-300 bg-canvas text-gray-700 hover:border-chrome-indigo'
+                }`}
+              >
+                <div className="text-xs font-black flex items-center justify-between">
+                  <span>MP4 480p / 360p</span>
+                  <span className="bg-gray-600 text-white text-[9px] px-1 rounded font-pixel">SD</span>
+                </div>
+                <span className="text-[10px] text-gray-500 font-medium">Econômico / Celular</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* CATEGORY: AUDIO OPTIONS & RETRO FX SYNTHESIZER */}
         {activeCategory === 'audio' && (
           <div className="space-y-4">
             <div className="text-xs font-bold text-carbon uppercase flex items-center justify-between">
@@ -320,67 +399,7 @@ export default function ExtractorUI({ url, backendUrl, onTriggerToast, playClick
           </div>
         )}
 
-        {/* CATEGORY 2: VIDEO OPTIONS */}
-        {activeCategory === 'video' && (
-          <div className="space-y-3">
-            <div className="text-xs font-bold text-carbon uppercase flex items-center justify-between">
-              <span>Resolução de Vídeo (MP4 com Áudio Sincronizado):</span>
-              <span className="text-[10px] text-amber font-pixel">Mesclagem FFmpeg On-the-Fly</span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              <button
-                type="button"
-                onClick={() => { if (playClick) playClick(); setVideoQuality('1080p'); }}
-                className={`min-h-[48px] p-2.5 rounded-sm border-2 text-left flex flex-col justify-center transition-all ${
-                  videoQuality === '1080p'
-                    ? 'border-signal bg-signal/10 text-carbon font-bold'
-                    : 'border-gray-300 bg-canvas text-gray-700 hover:border-chrome-indigo'
-                }`}
-              >
-                <div className="text-xs font-black flex items-center justify-between">
-                  <span>MP4 1080p</span>
-                  <span className="bg-amber text-carbon text-[9px] px-1 rounded font-pixel">FHD</span>
-                </div>
-                <span className="text-[10px] text-gray-500 font-medium">Alta Definição 1080p</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => { if (playClick) playClick(); setVideoQuality('720p'); }}
-                className={`min-h-[48px] p-2.5 rounded-sm border-2 text-left flex flex-col justify-center transition-all ${
-                  videoQuality === '720p'
-                    ? 'border-signal bg-signal/10 text-carbon font-bold'
-                    : 'border-gray-300 bg-canvas text-gray-700 hover:border-chrome-indigo'
-                }`}
-              >
-                <div className="text-xs font-black flex items-center justify-between">
-                  <span>MP4 720p</span>
-                  <span className="bg-signal text-white text-[9px] px-1 rounded font-pixel">HD</span>
-                </div>
-                <span className="text-[10px] text-gray-500 font-medium">Qualidade HD Padrão</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => { if (playClick) playClick(); setVideoQuality('480p'); }}
-                className={`min-h-[48px] p-2.5 rounded-sm border-2 text-left flex flex-col justify-center transition-all ${
-                  videoQuality === '480p'
-                    ? 'border-signal bg-signal/10 text-carbon font-bold'
-                    : 'border-gray-300 bg-canvas text-gray-700 hover:border-chrome-indigo'
-                }`}
-              >
-                <div className="text-xs font-black flex items-center justify-between">
-                  <span>MP4 480p / 360p</span>
-                  <span className="bg-gray-600 text-white text-[9px] px-1 rounded font-pixel">SD</span>
-                </div>
-                <span className="text-[10px] text-gray-500 font-medium">Econômico / Celular</span>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* CATEGORY 3: THUMBNAIL / CAPA OPTIONS */}
+        {/* CATEGORY: THUMBNAIL / CAPA OPTIONS */}
         {activeCategory === 'thumbnail' && (
           <div className="space-y-3">
             <div className="text-xs font-bold text-carbon uppercase flex items-center justify-between">
@@ -451,7 +470,7 @@ export default function ExtractorUI({ url, backendUrl, onTriggerToast, playClick
           <>
             <Download className="w-5 h-5" />
             <span>
-              PROCESSAR & BAIXAR [{activeCategory.toUpperCase()}: {activeCategory === 'audio' ? `${audioFormat.toUpperCase()} ${audioQuality}` : activeCategory === 'video' ? `MP4 ${videoQuality}` : imageFormat.toUpperCase()}]
+              BAIXAR AGORA [{activeCategory.toUpperCase()}: {activeCategory === 'audio' ? `${audioFormat.toUpperCase()} ${audioQuality}` : activeCategory === 'video' ? `MP4 ${videoQuality}` : imageFormat.toUpperCase()}]
             </span>
           </>
         )}

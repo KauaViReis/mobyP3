@@ -1,14 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { Clipboard, Check, ChevronRight, RefreshCw, Disc } from 'lucide-react';
+import { Clipboard, Check, ChevronRight, RefreshCw, Disc, XCircle, Trash2 } from 'lucide-react';
 
 interface UrlInputGroupProps {
   urlInput: string;
   setUrlInput: (url: string) => void;
   onSubmit: (e?: React.FormEvent) => void;
+  onClear?: () => void;
+  onCancel?: () => void;
   loading: boolean;
 }
 
-export default function UrlInputGroup({ urlInput, setUrlInput, onSubmit, loading }: UrlInputGroupProps) {
+export default function UrlInputGroup({ urlInput, setUrlInput, onSubmit, onClear, onCancel, loading }: UrlInputGroupProps) {
   const [copied, setCopied] = useState(false);
   const [clipboardDetected, setClipboardDetected] = useState<string | null>(null);
 
@@ -67,7 +69,6 @@ export default function UrlInputGroup({ urlInput, setUrlInput, onSubmit, loading
     } catch {
       // Browser permission fallback prompt
     }
-    // Fallback if clipboard API permission is denied
     const manualText = prompt("Cole a URL do vídeo ou áudio aqui:");
     if (manualText) {
       setUrlInput(manualText.trim());
@@ -111,19 +112,29 @@ export default function UrlInputGroup({ urlInput, setUrlInput, onSubmit, loading
         </div>
 
         <div className="flex flex-col sm:flex-row gap-2">
-          {/* Input Field with Inset Bevel */}
+          {/* Input Field with Inset Bevel & Clear Icon */}
           <div className="relative flex-1">
             <input
               type="url"
               value={urlInput}
               onChange={(e) => setUrlInput(e.target.value)}
               placeholder="Cole a URL do YouTube, TikTok, Soundcloud ou Instagram..."
-              className="w-full min-h-[48px] bg-surface text-carbon px-3.5 py-2.5 rounded-sm bevel-inset text-sm font-medium focus:outline-none focus:ring-2 focus:ring-signal placeholder:text-gray-400"
+              className="w-full min-h-[48px] bg-surface text-carbon px-3.5 py-2.5 pr-10 rounded-sm bevel-inset text-sm font-medium focus:outline-none focus:ring-2 focus:ring-signal placeholder:text-gray-400"
               required
             />
+            {urlInput && (
+              <button
+                type="button"
+                onClick={() => { setUrlInput(''); onClear?.(); }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 font-bold text-xs"
+                title="Limpar campo"
+              >
+                ✕
+              </button>
+            )}
           </div>
 
-          {/* Retro Auto-Paste Button ("LER DISCO") - Min 48px touch target */}
+          {/* Retro Auto-Paste Button ("LER DISCO") */}
           <button
             type="button"
             onClick={handlePaste}
@@ -143,24 +154,28 @@ export default function UrlInputGroup({ urlInput, setUrlInput, onSubmit, loading
             )}
           </button>
 
-          {/* Submit CTA Button - Min 48px touch target */}
-          <button
-            type="submit"
-            disabled={loading}
-            className="min-h-[48px] bg-signal hover:bg-signal/90 active:translate-y-0.5 text-white px-6 py-2.5 rounded-sm font-bold text-xs uppercase tracking-wider bevel-card flex items-center justify-center gap-2 shadow-bevel-btn disabled:opacity-50"
-          >
-            {loading ? (
-              <>
-                <RefreshCw className="w-4 h-4 animate-spin" />
-                <span>ESCANEANDO...</span>
-              </>
-            ) : (
-              <>
-                <span>BUSCAR MÍDIA</span>
-                <ChevronRight className="w-4 h-4 bg-white text-signal rounded-full p-0.5" />
-              </>
-            )}
-          </button>
+          {/* CANCEL BUSCA Button when Loading */}
+          {loading ? (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="min-h-[48px] bg-red-600 hover:bg-red-700 active:translate-y-0.5 text-white px-5 py-2.5 rounded-sm font-bold text-xs uppercase tracking-wider bevel-card flex items-center justify-center gap-2 shadow-bevel-btn"
+              title="Cancelar busca de mídia atual"
+            >
+              <XCircle className="w-4 h-4" />
+              <span>CANCELAR</span>
+            </button>
+          ) : (
+            /* Submit CTA Button */
+            <button
+              type="submit"
+              disabled={loading}
+              className="min-h-[48px] bg-signal hover:bg-signal/90 active:translate-y-0.5 text-white px-6 py-2.5 rounded-sm font-bold text-xs uppercase tracking-wider bevel-card flex items-center justify-center gap-2 shadow-bevel-btn disabled:opacity-50"
+            >
+              <span>BUSCAR MÍDIA</span>
+              <ChevronRight className="w-4 h-4 bg-white text-signal rounded-full p-0.5" />
+            </button>
+          )}
         </div>
       </form>
     </div>
