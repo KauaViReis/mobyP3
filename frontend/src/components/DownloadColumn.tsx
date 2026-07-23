@@ -25,14 +25,14 @@ interface DownloadColumnProps {
 
 export default function DownloadColumn({ title, type, badgeText, formats, onSelectFormat }: DownloadColumnProps) {
   return (
-    <div className="bg-platinum p-4 rounded-sm bevel-card space-y-3">
+    <div className="bg-platinum p-3.5 sm:p-4 rounded-sm bevel-card space-y-3 max-w-full overflow-x-hidden">
       {/* Column Header */}
       <div className="flex items-center justify-between border-b-2 border-chrome-indigo pb-2">
-        <h3 className="text-xs font-bold text-carbon uppercase tracking-wider flex items-center gap-1.5">
-          {type === 'audio' ? <Music className="w-3.5 h-3.5 text-signal" /> : <Film className="w-3.5 h-3.5 text-chrome-indigo" />}
-          <span>{title}</span>
+        <h3 className="text-xs font-bold text-carbon uppercase tracking-wider flex items-center gap-1.5 truncate">
+          {type === 'audio' ? <Music className="w-4 h-4 text-signal flex-shrink-0" /> : <Film className="w-4 h-4 text-chrome-indigo flex-shrink-0" />}
+          <span className="truncate">{title}</span>
         </h3>
-        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${type === 'audio' ? 'bg-amber text-carbon' : 'bg-signal text-white'}`}>
+        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded flex-shrink-0 ${type === 'audio' ? 'bg-amber text-carbon' : 'bg-signal text-white'}`}>
           {badgeText}
         </span>
       </div>
@@ -42,10 +42,10 @@ export default function DownloadColumn({ title, type, badgeText, formats, onSele
         {formats.map((fmt, idx) => (
           <div
             key={idx}
-            className="bg-surface p-2.5 rounded-sm bevel-inset flex items-center justify-between gap-2 hover:bg-sky/20 transition-colors"
+            className="bg-surface p-3 rounded-sm bevel-inset flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 hover:bg-sky/20 transition-colors"
           >
-            <div>
-              <div className="text-xs font-bold text-carbon flex items-center gap-1">
+            <div className="space-y-0.5">
+              <div className="text-xs font-bold text-carbon flex items-center gap-1 flex-wrap">
                 <span className={`uppercase font-black ${type === 'audio' ? 'text-signal' : 'text-chrome-indigo'}`}>
                   {fmt.ext}
                 </span>
@@ -62,14 +62,15 @@ export default function DownloadColumn({ title, type, badgeText, formats, onSele
               </div>
             </div>
 
-            {/* Click to open Modal Preview & Direct Download */}
+            {/* Min 48px touch target button for Mobile UX */}
             <button
+              type="button"
               onClick={() => onSelectFormat(fmt)}
-              className={`${
-                type === 'audio' ? 'bg-amber text-carbon' : 'bg-signal text-white'
-              } font-bold text-xs px-3 py-1.5 rounded-sm bevel-card flex items-center gap-1.5 shadow-bevel-btn active:translate-y-0.5`}
+              className={`min-h-[48px] ${
+                type === 'audio' ? 'bg-amber text-carbon hover:bg-amber/90' : 'bg-signal text-white hover:bg-signal/90'
+              } font-bold text-xs px-4 py-2.5 rounded-sm bevel-card flex items-center justify-center gap-2 shadow-bevel-btn active:translate-y-0.5 uppercase tracking-wider w-full sm:w-auto`}
             >
-              <Download className="w-3.5 h-3.5" />
+              <Download className="w-4 h-4" />
               <span>PREVIEW / BAIXAR</span>
             </button>
           </div>

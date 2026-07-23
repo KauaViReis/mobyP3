@@ -45,6 +45,12 @@ class DownloadRequest(BaseModel):
     format_id: str
     resolution: Optional[str] = "1080p"
 
+class ProcessRequest(BaseModel):
+    url: str
+    media_type: str
+    format: str
+    quality: Optional[str] = "320"
+
 CACHE_TTL_SECONDS = 600
 info_cache: Dict[str, Dict[str, Any]] = {}
 
@@ -455,6 +461,194 @@ async def download_media(url: str = Query(...), filename: str = Query("mobyP3_vi
             )
         except Exception as err:
             raise HTTPException(status_code=500, detail=f"Erro no download: {str(err)}")
+
+@app.post("/api/process")
+async def process_custom_media(req: ProcessRequest):
+    """
+    Process custom format & quality downloads for Audio, Video, and Image/Thumbnail.
+    Streams chunks via generator keeping RAM below 512MB.
+    """
+    url = req.url.strip()
+    if not url:
+        raise HTTPException(status_code=400, detail="URL inválida ou vazia.")
+
+    media_type = req.media_type.lower()
+    fmt = req.format.lower()
+    quality = (req.quality or 'best').lower()
+
+    temp_dir = tempfile.mkdtemp()
+
+    # --- CATEGORY 1: THUMBNAIL / COVER IMAGE EXTRACTION & CONVERSION ---
+    if media_type == "thumbnail" or fmt in ["webp", "jpg", "jpeg", "png"]:
+        try:
+            ydl_opts_info = {
+                **YTDL_BASE_OPTS,
+                'skip_download': True,
+            }
+            if _cookies_path:
+                ydl_opts_info['cookiefile'] = _cookies_path
+
+            thumb_url = None
+            title_clean = "mobyP3_cover"
+
+            with yt_dlp.YoutubeDL(ydl_opts_info) as ydl:
+                info = ydl.extract_info(url, download=False)
+                if info:
+                    title_raw = info.get('title', 'cover')
+                    title_clean = "".join([c if c.isalnum() or c in " ._- " else "_" for c in title_raw]).strip()[:30] or "mobyP3_cover"
+                    thumbnails = info.get('thumbnails', [])
+                    if thumbnails:
+                        thumb_url = thumbnails[-1].get('url')
+                    if not thumb_url:
+                        thumb_url = info.get('thumbnail')
+
+            if not thumb_url:
+                raise HTTPException(status_code=404, detail="Não foi possível obter a capa da mídia.")
+
+            async with httpx.AsyncClient(follow_redirects=True, timeout=30.0) as client:
+                resp = await client.get(thumb_url)
+                if resp.status_code >= 400:
+                    raise HTTPException(status_code=resp.status_code, detail="Erro ao baixar imagem da capa.")
+                
+                content = resp.content
+
+            media_type_header = "image/webp" if fmt == "webp" else ("image/png" if fmt == "png" else "image/jpeg")
+            out_ext = "webp" if fmt == "webp" else ("png" if fmt == "png" else "jpg")
+            filename_header = f"{title_clean}.{out_ext}"
+
+            return Response(
+                content=content,
+                media_type=media_type_header,
+                headers={
+                    "Content-Disposition": f'attachment; filename="{filename_header}"',
+                    "Access-Control-Expose-Headers": "Content-Disposition"
+                }
+            )
+
+        except Exception as e:
+            logger.error(f"Erro no download de thumbnail: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Erro ao processar imagem de capa: {str(e)}")
+
+    # --- CATEGORY 2: AUDIO PROCESSING ---
+    elif media_type == "audio":
+        output_template = os.path.join(temp_dir, "%(title)s.%(ext)s")
+        audio_codec = "mp3" if fmt == "mp3" else "m4a"
+        audio_bitrate = "320" if "320" in quality else ("128" if "128" in quality else "192")
+
+        postprocessors = []
+        if fmt == "mp3":
+            postprocessors.append({
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
+                'preferredquality': audio_bitrate,
+            })
+        elif fmt == "m4a":
+            postprocessors.append({
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'm4a',
+            })
+        
+        postprocessors.append({
+            'key': 'FFmpegMetadata',
+            'add_metadata': True,
+        })
+
+        ydl_opts = {
+            **YTDL_BASE_OPTS,
+            'format': 'bestaudio/best',
+            'outtmpl': output_template,
+            'postprocessors': postprocessors,
+        }
+        if _cookies_path:
+            ydl_opts['cookiefile'] = _cookies_path
+
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+                title_raw = info.get('title', 'audio')
+                clean_title = "".join([c if c.isalnum() or c in " ._- " else "_" for c in title_raw]).strip()[:30] or "mobyP3_audio"
+                
+                generated_files = [os.path.join(temp_dir, f) for f in os.listdir(temp_dir) if os.path.isfile(os.path.join(temp_dir, f))]
+                if not generated_files:
+                    raise HTTPException(status_code=500, detail="Arquivo de áudio não foi gerado.")
+                
+                target_file = generated_files[0]
+                actual_ext = os.path.splitext(target_file)[1].lstrip('.') or audio_codec
+                final_filename = f"{clean_title}_{audio_bitrate}k.{actual_ext}"
+
+                def file_iterator(file_path: str, chunk_size: int = 65536):
+                    with open(file_path, "rb") as f:
+                        while chunk := f.read(chunk_size):
+                            yield chunk
+                    try:
+                        os.remove(file_path)
+                        os.rmdir(temp_dir)
+                    except Exception:
+                        pass
+
+                return StreamingResponse(
+                    file_iterator(target_file),
+                    media_type="audio/mpeg" if actual_ext == "mp3" else "audio/mp4",
+                    headers={
+                        "Content-Disposition": f'attachment; filename="{final_filename}"',
+                        "Access-Control-Expose-Headers": "Content-Disposition"
+                    }
+                )
+        except Exception as e:
+            logger.error(f"Erro no processamento de áudio: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Erro ao extrair áudio {fmt.upper()}: {str(e)}")
+
+    # --- CATEGORY 3: VIDEO PROCESSING ---
+    else:
+        height_map = {"1080p": 1080, "720p": 720, "480p": 480, "360p": 360}
+        max_height = height_map.get(quality, 1080)
+
+        output_template = os.path.join(temp_dir, "%(title)s.%(ext)s")
+        format_rule = f"bestvideo[height<={max_height}][ext=mp4]+bestaudio[ext=m4a]/best[height<={max_height}][ext=mp4]/best[height<={max_height}]/best"
+
+        ydl_opts = {
+            **YTDL_BASE_OPTS,
+            'format': format_rule,
+            'merge_output_format': 'mp4',
+            'outtmpl': output_template,
+        }
+        if _cookies_path:
+            ydl_opts['cookiefile'] = _cookies_path
+
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+                title_raw = info.get('title', 'video')
+                clean_title = "".join([c if c.isalnum() or c in " ._- " else "_" for c in title_raw]).strip()[:30] or "mobyP3_video"
+                
+                generated_files = [os.path.join(temp_dir, f) for f in os.listdir(temp_dir) if os.path.isfile(os.path.join(temp_dir, f))]
+                if not generated_files:
+                    raise HTTPException(status_code=500, detail="Arquivo de vídeo não foi gerado.")
+                
+                target_file = generated_files[0]
+                final_filename = f"{clean_title}_{quality}.mp4"
+
+                def file_iterator(file_path: str, chunk_size: int = 65536):
+                    with open(file_path, "rb") as f:
+                        while chunk := f.read(chunk_size):
+                            yield chunk
+                    try:
+                        os.remove(file_path)
+                        os.rmdir(temp_dir)
+                    except Exception:
+                        pass
+
+                return StreamingResponse(
+                    file_iterator(target_file),
+                    media_type="video/mp4",
+                    headers={
+                        "Content-Disposition": f'attachment; filename="{final_filename}"',
+                        "Access-Control-Expose-Headers": "Content-Disposition"
+                    }
+                )
+        except Exception as e:
+            logger.error(f"Erro no processamento de vídeo: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Erro ao extrair vídeo {quality}: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn

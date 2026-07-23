@@ -1,0 +1,382 @@
+import React, { useState } from 'react';
+import { Music, Video, Image as ImageIcon, Download, Sparkles, RefreshCw, Zap, CheckCircle2 } from 'lucide-react';
+
+export type MediaTypeCategory = 'audio' | 'video' | 'thumbnail';
+
+export interface ProcessOptions {
+  media_type: MediaTypeCategory;
+  format: 'mp3' | 'm4a' | 'mp4' | 'webp' | 'jpg' | 'png';
+  quality: '320' | '128' | 'native' | '1080p' | '720p' | '480p' | '360p' | 'best';
+}
+
+interface ExtractorUIProps {
+  url: string;
+  backendUrl: string;
+  onTriggerToast: (msg: string) => void;
+  playClick?: () => void;
+}
+
+export default function ExtractorUI({ url, backendUrl, onTriggerToast, playClick }: ExtractorUIProps) {
+  const [activeCategory, setActiveCategory] = useState<MediaTypeCategory>('audio');
+  
+  // Format Selection State
+  const [audioFormat, setAudioFormat] = useState<'mp3' | 'm4a'>('mp3');
+  const [audioQuality, setAudioQuality] = useState<'320' | '128' | 'native'>('320');
+
+  const [videoQuality, setVideoQuality] = useState<'1080p' | '720p' | '480p'>('1080p');
+  const [imageFormat, setImageFormat] = useState<'webp' | 'jpg' | 'png'>('webp');
+
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
+
+  const handleSelectCategory = (cat: MediaTypeCategory) => {
+    if (playClick) playClick();
+    setActiveCategory(cat);
+  };
+
+  const handleProcessDownload = async () => {
+    if (playClick) playClick();
+    if (!url.trim()) {
+      onTriggerToast("Por favor, informe uma URL válida.");
+      return;
+    }
+
+    setIsProcessing(true);
+    setDownloadProgress(25);
+
+    let formatParam: ProcessOptions['format'] = 'mp3';
+    let qualityParam: ProcessOptions['quality'] = '320';
+
+    if (activeCategory === 'audio') {
+      formatParam = audioFormat;
+      qualityParam = audioQuality;
+    } else if (activeCategory === 'video') {
+      formatParam = 'mp4';
+      qualityParam = videoQuality;
+    } else if (activeCategory === 'thumbnail') {
+      formatParam = imageFormat;
+      qualityParam = 'best';
+    }
+
+    onTriggerToast(`Iniciando extração [${activeCategory.toUpperCase()}: ${formatParam.toUpperCase()} ${qualityParam}]...`);
+
+    const apiBase = backendUrl.replace(/\/$/, '');
+
+    try {
+      setDownloadProgress(50);
+      const res = await fetch(`${apiBase}/api/process`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: url.trim(),
+          media_type: activeCategory,
+          format: formatParam,
+          quality: qualityParam
+        }),
+        signal: AbortSignal.timeout(60000)
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.detail || "Falha ao processar arquivo no servidor.");
+      }
+
+      setDownloadProgress(85);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+
+      // Create dynamic download link
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      
+      const ext = formatParam;
+      const cleanTitle = `mobyP3_${activeCategory}_${Date.now()}.${ext}`;
+      
+      // Try to get filename from Content-Disposition header
+      const contentDisposition = res.headers.get('Content-Disposition');
+      if (contentDisposition && contentDisposition.includes('filename=')) {
+        const match = contentDisposition.match(/filename=["']?([^"';]+)["']?/);
+        if (match && match[1]) {
+          a.download = match[1];
+        } else {
+          a.download = cleanTitle;
+        }
+      } else {
+        a.download = cleanTitle;
+      }
+
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(blobUrl);
+
+      setDownloadProgress(100);
+      onTriggerToast(`Download de ${formatParam.toUpperCase()} concluído com sucesso!`);
+    } catch (err: any) {
+      onTriggerToast(`Erro ao processar: ${err.message || 'Falha de conexão'}`);
+    } finally {
+      setIsProcessing(false);
+      setDownloadProgress(0);
+    }
+  };
+
+  return (
+    <div className="bg-periwinkle p-4 sm:p-5 rounded-md bevel-chassis shadow-hard-drop space-y-4 max-w-full overflow-x-hidden">
+      
+      {/* Header Dip Switch Bar */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b-2 border-chrome-indigo pb-3">
+        <div className="flex items-center gap-2">
+          <Zap className="w-4 h-4 text-signal" />
+          <h2 className="text-xs font-bold text-carbon uppercase tracking-wider font-sans">
+            DIP SWITCH — SELETOR DE MÍDIA & QUALIDADE
+          </h2>
+        </div>
+        <span className="text-[10px] font-pixel bg-amber text-carbon px-2 py-0.5 rounded border border-carbon font-bold">
+          mobyP3 PRO ENGINE
+        </span>
+      </div>
+
+      {/* Category Tabs (Audio / Video / Thumbnail) */}
+      <div className="grid grid-cols-3 gap-2">
+        <button
+          type="button"
+          onClick={() => handleSelectCategory('audio')}
+          className={`min-h-[48px] px-3 py-2 rounded-sm bevel-card font-bold text-xs flex items-center justify-center gap-1.5 transition-colors uppercase tracking-wider ${
+            activeCategory === 'audio'
+              ? 'bg-amber text-carbon shadow-bevel-btn ring-2 ring-carbon'
+              : 'bg-carbon text-gray-300 hover:bg-carbon/80'
+          }`}
+        >
+          <Music className="w-4 h-4 text-signal" />
+          <span className="truncate">🎵 ÁUDIO</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handleSelectCategory('video')}
+          className={`min-h-[48px] px-3 py-2 rounded-sm bevel-card font-bold text-xs flex items-center justify-center gap-1.5 transition-colors uppercase tracking-wider ${
+            activeCategory === 'video'
+              ? 'bg-signal text-white shadow-bevel-btn ring-2 ring-carbon'
+              : 'bg-carbon text-gray-300 hover:bg-carbon/80'
+          }`}
+        >
+          <Video className="w-4 h-4 text-amber" />
+          <span className="truncate">🎬 VÍDEO</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handleSelectCategory('thumbnail')}
+          className={`min-h-[48px] px-3 py-2 rounded-sm bevel-card font-bold text-xs flex items-center justify-center gap-1.5 transition-colors uppercase tracking-wider ${
+            activeCategory === 'thumbnail'
+              ? 'bg-cyan-600 text-white shadow-bevel-btn ring-2 ring-carbon'
+              : 'bg-carbon text-gray-300 hover:bg-carbon/80'
+          }`}
+        >
+          <ImageIcon className="w-4 h-4 text-amber" />
+          <span className="truncate">🖼️ CAPA</span>
+        </button>
+      </div>
+
+      {/* Options Panel per Category */}
+      <div className="bg-surface p-4 rounded-sm bevel-inset space-y-4">
+        
+        {/* CATEGORY 1: AUDIO OPTIONS */}
+        {activeCategory === 'audio' && (
+          <div className="space-y-3">
+            <div className="text-xs font-bold text-carbon uppercase flex items-center justify-between">
+              <span>Formato & Taxa de Bits (Bitrate):</span>
+              <span className="text-[10px] text-signal font-pixel">ID3 Tag + Capa Embutida</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => { if (playClick) playClick(); setAudioFormat('mp3'); setAudioQuality('320'); }}
+                className={`min-h-[48px] p-2.5 rounded-sm border-2 text-left flex flex-col justify-center transition-all ${
+                  audioFormat === 'mp3' && audioQuality === '320'
+                    ? 'border-signal bg-signal/10 text-carbon font-bold'
+                    : 'border-gray-300 bg-canvas text-gray-700 hover:border-chrome-indigo'
+                }`}
+              >
+                <div className="text-xs font-black flex items-center gap-1">
+                  <span className="text-signal">MP3</span>
+                  <span>• 320 kbps</span>
+                </div>
+                <span className="text-[10px] text-gray-500 font-medium">Qualidade Máxima (HD)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { if (playClick) playClick(); setAudioFormat('mp3'); setAudioQuality('128'); }}
+                className={`min-h-[48px] p-2.5 rounded-sm border-2 text-left flex flex-col justify-center transition-all ${
+                  audioFormat === 'mp3' && audioQuality === '128'
+                    ? 'border-signal bg-signal/10 text-carbon font-bold'
+                    : 'border-gray-300 bg-canvas text-gray-700 hover:border-chrome-indigo'
+                }`}
+              >
+                <div className="text-xs font-black flex items-center gap-1">
+                  <span className="text-signal">MP3</span>
+                  <span>• 128 kbps</span>
+                </div>
+                <span className="text-[10px] text-gray-500 font-medium">Tamanho Reduzido</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { if (playClick) playClick(); setAudioFormat('m4a'); setAudioQuality('native'); }}
+                className={`min-h-[48px] p-2.5 rounded-sm border-2 text-left flex flex-col justify-center transition-all ${
+                  audioFormat === 'm4a'
+                    ? 'border-signal bg-signal/10 text-carbon font-bold'
+                    : 'border-gray-300 bg-canvas text-gray-700 hover:border-chrome-indigo'
+                }`}
+              >
+                <div className="text-xs font-black flex items-center gap-1">
+                  <span className="text-chrome-indigo">M4A</span>
+                  <span>• AAC Nativo</span>
+                </div>
+                <span className="text-[10px] text-gray-500 font-medium">Sem re-encoding</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* CATEGORY 2: VIDEO OPTIONS */}
+        {activeCategory === 'video' && (
+          <div className="space-y-3">
+            <div className="text-xs font-bold text-carbon uppercase flex items-center justify-between">
+              <span>Resolução de Vídeo (MP4 com Áudio Sincronizado):</span>
+              <span className="text-[10px] text-amber font-pixel">Mesclagem FFmpeg On-the-Fly</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => { if (playClick) playClick(); setVideoQuality('1080p'); }}
+                className={`min-h-[48px] p-2.5 rounded-sm border-2 text-left flex flex-col justify-center transition-all ${
+                  videoQuality === '1080p'
+                    ? 'border-signal bg-signal/10 text-carbon font-bold'
+                    : 'border-gray-300 bg-canvas text-gray-700 hover:border-chrome-indigo'
+                }`}
+              >
+                <div className="text-xs font-black flex items-center justify-between">
+                  <span>MP4 1080p</span>
+                  <span className="bg-amber text-carbon text-[9px] px-1 rounded font-pixel">FHD</span>
+                </div>
+                <span className="text-[10px] text-gray-500 font-medium">Alta Definição 1080p</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { if (playClick) playClick(); setVideoQuality('720p'); }}
+                className={`min-h-[48px] p-2.5 rounded-sm border-2 text-left flex flex-col justify-center transition-all ${
+                  videoQuality === '720p'
+                    ? 'border-signal bg-signal/10 text-carbon font-bold'
+                    : 'border-gray-300 bg-canvas text-gray-700 hover:border-chrome-indigo'
+                }`}
+              >
+                <div className="text-xs font-black flex items-center justify-between">
+                  <span>MP4 720p</span>
+                  <span className="bg-signal text-white text-[9px] px-1 rounded font-pixel">HD</span>
+                </div>
+                <span className="text-[10px] text-gray-500 font-medium">Qualidade HD Padrão</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { if (playClick) playClick(); setVideoQuality('480p'); }}
+                className={`min-h-[48px] p-2.5 rounded-sm border-2 text-left flex flex-col justify-center transition-all ${
+                  videoQuality === '480p'
+                    ? 'border-signal bg-signal/10 text-carbon font-bold'
+                    : 'border-gray-300 bg-canvas text-gray-700 hover:border-chrome-indigo'
+                }`}
+              >
+                <div className="text-xs font-black flex items-center justify-between">
+                  <span>MP4 480p / 360p</span>
+                  <span className="bg-gray-600 text-white text-[9px] px-1 rounded font-pixel">SD</span>
+                </div>
+                <span className="text-[10px] text-gray-500 font-medium">Econômico / Celular</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* CATEGORY 3: THUMBNAIL / CAPA OPTIONS */}
+        {activeCategory === 'thumbnail' && (
+          <div className="space-y-3">
+            <div className="text-xs font-bold text-carbon uppercase flex items-center justify-between">
+              <span>Formato da Imagem de Capa (Thumbnail HD/4K):</span>
+              <span className="text-[10px] text-cyan-600 font-pixel">Download Direto</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => { if (playClick) playClick(); setImageFormat('webp'); }}
+                className={`min-h-[48px] p-2.5 rounded-sm border-2 text-left flex flex-col justify-center transition-all ${
+                  imageFormat === 'webp'
+                    ? 'border-signal bg-signal/10 text-carbon font-bold'
+                    : 'border-gray-300 bg-canvas text-gray-700 hover:border-chrome-indigo'
+                }`}
+              >
+                <div className="text-xs font-black flex items-center justify-between">
+                  <span>WebP (Otimizado)</span>
+                  <Sparkles className="w-3.5 h-3.5 text-signal" />
+                </div>
+                <span className="text-[10px] text-gray-500 font-medium">Comprimido sem perda</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { if (playClick) playClick(); setImageFormat('jpg'); }}
+                className={`min-h-[48px] p-2.5 rounded-sm border-2 text-left flex flex-col justify-center transition-all ${
+                  imageFormat === 'jpg'
+                    ? 'border-signal bg-signal/10 text-carbon font-bold'
+                    : 'border-gray-300 bg-canvas text-gray-700 hover:border-chrome-indigo'
+                }`}
+              >
+                <div className="text-xs font-black">JPG (Padrão)</div>
+                <span className="text-[10px] text-gray-500 font-medium">Compatibilidade Total</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { if (playClick) playClick(); setImageFormat('png'); }}
+                className={`min-h-[48px] p-2.5 rounded-sm border-2 text-left flex flex-col justify-center transition-all ${
+                  imageFormat === 'png'
+                    ? 'border-signal bg-signal/10 text-carbon font-bold'
+                    : 'border-gray-300 bg-canvas text-gray-700 hover:border-chrome-indigo'
+                }`}
+              >
+                <div className="text-xs font-black">PNG Ultra</div>
+                <span className="text-[10px] text-gray-500 font-medium">Alta Resolução</span>
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* PROCESS & DOWNLOAD CTA BUTTON */}
+      <button
+        type="button"
+        onClick={handleProcessDownload}
+        disabled={isProcessing || !url.trim()}
+        className="w-full min-h-[48px] bg-signal hover:bg-signal/90 active:translate-y-0.5 text-white font-bold text-sm py-3 px-4 rounded-sm bevel-card flex items-center justify-center gap-2 shadow-bevel-btn uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {isProcessing ? (
+          <>
+            <RefreshCw className="w-5 h-5 animate-spin" />
+            <span>⏳ PROCESSANDO E EXTRAINDO ({downloadProgress}%)...</span>
+          </>
+        ) : (
+          <>
+            <Download className="w-5 h-5" />
+            <span>
+              PROCESSAR & BAIXAR [{activeCategory.toUpperCase()}: {activeCategory === 'audio' ? `${audioFormat.toUpperCase()} ${audioQuality}` : activeCategory === 'video' ? `MP4 ${videoQuality}` : imageFormat.toUpperCase()}]
+            </span>
+          </>
+        )}
+      </button>
+    </div>
+  );
+}

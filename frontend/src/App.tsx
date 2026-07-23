@@ -9,7 +9,9 @@ import {
   ListMusic,
   Volume2,
   VolumeX,
-  HelpCircle
+  HelpCircle,
+  Disc,
+  Download
 } from 'lucide-react';
 
 import BootScreen from './components/BootScreen';
@@ -17,6 +19,7 @@ import MobyMascot, { MobyState } from './components/MobyMascot';
 import UrlInputGroup from './components/UrlInputGroup';
 import MediaPreviewCard from './components/MediaPreviewCard';
 import DownloadColumn, { FormatItem } from './components/DownloadColumn';
+import ExtractorUI from './components/ExtractorUI';
 import ModalPreview from './components/ModalPreview';
 import PlaylistBatchPanel, { PlaylistItem } from './components/PlaylistBatchPanel';
 import MemoryCardPanel, { HistoryBlock } from './components/MemoryCardPanel';
@@ -155,7 +158,6 @@ export default function App() {
     setMobySpeech('Escaneando link (verificando se é vídeo individual ou playlist)...');
 
     try {
-      // Se backend offline, tenta acordar antes de buscar mídia
       if (backendStatus === 'offline') {
         setMobySpeech('Acordando o servidor... Aguarde um momento.');
         const woke = await checkHealth(1);
@@ -213,27 +215,39 @@ export default function App() {
         />
       )}
 
-      <div className="min-h-screen bg-canvas pb-16 pt-2 font-sans selection:bg-signal selection:text-white">
+      {/* Main App Container with Zero Horizontal Scrollbar */}
+      <div className="min-h-screen bg-canvas pb-16 pt-2 font-sans selection:bg-signal selection:text-white w-full overflow-x-hidden">
         
+        {/* MOBILE STICKY LOADING PROGRESS FEEDBACK BANNER */}
+        {loading && (
+          <div className="sticky top-0 z-50 bg-signal text-white px-4 py-3 shadow-md border-b-2 border-carbon font-bold text-xs flex items-center justify-between animate-pulse">
+            <div className="flex items-center gap-2">
+              <RefreshCw className="w-4 h-4 animate-spin" />
+              <span>ESCANEANDO MÍDIA EM ALTA VELOCIDADE...</span>
+            </div>
+            <span className="font-pixel text-[10px] bg-carbon text-amber px-2 py-0.5 rounded">mobyP3 BUSCA</span>
+          </div>
+        )}
+
         {/* RETRO FLOATING QUEST ICON [ ! ] */}
         <button
+          type="button"
           onClick={() => { playClick(); setShowTutorialModal(true); }}
-          className="fixed bottom-5 left-5 z-40 bg-amber hover:bg-signal text-carbon hover:text-white w-12 h-12 rounded-full bevel-card flex items-center justify-center font-pixel font-bold text-xl shadow-[0_0_15px_rgba(236,171,55,0.6)] animate-bounce border-2 border-carbon transition-transform hover:scale-110 active:translate-y-0.5 group"
+          className="fixed bottom-5 left-5 z-40 bg-amber hover:bg-signal text-carbon hover:text-white min-h-[48px] min-w-[48px] w-12 h-12 rounded-full bevel-card flex items-center justify-center font-pixel font-bold text-xl shadow-[0_0_15px_rgba(236,171,55,0.6)] animate-bounce border-2 border-carbon transition-transform hover:scale-110 active:translate-y-0.5 group"
           title="Manual do Sistema & Guia [ ! ]"
         >
           <span>!</span>
-          {/* Tooltip Tag */}
           <span className="absolute left-14 bg-carbon text-amber text-[10px] font-pixel px-2.5 py-1 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap border border-amber">
             MANUAL DO SISTEMA [!]
           </span>
         </button>
 
         {/* MASTHEAD & MASCOT */}
-        <header className="max-w-[840px] mx-auto px-3 mb-2">
+        <header className="max-w-[840px] mx-auto px-3 mb-2 w-full overflow-x-hidden">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-2">
             <MobyMascot state={mobyState} customMsg={mobySpeech} />
 
-            <div className="bg-carbon text-surface px-3 py-1.5 rounded bevel-card text-right flex flex-col justify-center border-l-4 border-l-signal">
+            <div className="bg-carbon text-surface px-3 py-1.5 rounded bevel-card text-right flex flex-col justify-center border-l-4 border-l-signal w-full sm:w-auto">
               <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1.5 justify-end">
                 <span>STATUS ENGINE:</span>
                 {backendStatus === 'ready' ? (
@@ -246,7 +260,7 @@ export default function App() {
                 {backendStatus === 'ready' ? (
                   <span className="text-green-400">🟢 Motor v3.0 Pro</span>
                 ) : (
-                  <button onClick={() => { playClick(); checkHealth(); }} className="text-amber hover:text-white flex items-center gap-1 text-[10px]">
+                  <button type="button" onClick={() => { playClick(); checkHealth(); }} className="min-h-[36px] text-amber hover:text-white flex items-center gap-1 text-[10px]">
                     <span>🟡 Modo Pro Demo</span>
                     <RefreshCw className="w-3 h-3" />
                   </button>
@@ -257,28 +271,29 @@ export default function App() {
         </header>
 
         {/* CARBON COMMAND BAR */}
-        <nav className="max-w-[840px] mx-auto mb-4 bg-halftone rounded-sm bevel-chassis p-2 flex flex-wrap items-center justify-between gap-2 shadow-hard-drop">
-          <div className="bg-surface text-primary px-4 py-1 rounded-full font-display font-black text-xl tracking-tighter border-2 border-primary shadow-inner flex items-center gap-1">
+        <nav className="max-w-[840px] mx-auto mb-4 bg-halftone rounded-sm bevel-chassis p-3 flex flex-col md:flex-row items-center justify-between gap-3 shadow-hard-drop w-full overflow-x-hidden">
+          <div className="bg-surface text-primary px-4 py-1.5 rounded-full font-display font-black text-xl tracking-tighter border-2 border-primary shadow-inner flex items-center gap-1">
             <span className="text-chrome-indigo">moby</span>
             <span className="text-primary italic">P3</span>
             <span className="text-[9px] bg-amber text-carbon px-1.5 py-0.5 rounded-full font-sans tracking-normal ml-1 border border-carbon font-bold">v3.0 PRO</span>
           </div>
 
-          <div className="flex items-center gap-3 text-xs font-bold uppercase">
-            <a href="#chassis" onClick={playClick} className="text-nav-gold hover:text-amber transition-colors flex items-center gap-1">
+          <div className="flex flex-wrap items-center justify-center gap-3 text-xs font-bold uppercase w-full md:w-auto">
+            <a href="#chassis" onClick={playClick} className="min-h-[40px] text-nav-gold hover:text-amber transition-colors flex items-center gap-1">
               <Music className="w-3.5 h-3.5" /> Áudio
             </a>
-            <a href="#chassis" onClick={playClick} className="text-nav-gold hover:text-amber transition-colors flex items-center gap-1">
+            <a href="#chassis" onClick={playClick} className="min-h-[40px] text-nav-gold hover:text-amber transition-colors flex items-center gap-1">
               <Video className="w-3.5 h-3.5" /> Vídeo 4K
             </a>
-            <a href="#chassis" onClick={playClick} className="text-nav-gold hover:text-amber transition-colors flex items-center gap-1">
+            <a href="#chassis" onClick={playClick} className="min-h-[40px] text-nav-gold hover:text-amber transition-colors flex items-center gap-1">
               <ListMusic className="w-3.5 h-3.5" /> Playlists
             </a>
 
             {/* MANUAL BUTTON */}
             <button
+              type="button"
               onClick={() => { playClick(); setShowTutorialModal(true); }}
-              className="text-amber hover:text-white transition-colors flex items-center gap-1 font-pixel text-[10px]"
+              className="min-h-[40px] text-amber hover:text-white transition-colors flex items-center gap-1 font-pixel text-[10px]"
             >
               <HelpCircle className="w-3.5 h-3.5" />
               <span>GUIA [ ! ]</span>
@@ -286,23 +301,24 @@ export default function App() {
 
             {/* 8-BIT SFX TOGGLE BUTTON */}
             <button
+              type="button"
               onClick={() => { toggleSFX(); playClick(); }}
-              className={`text-[10px] font-pixel px-2 py-1 rounded border border-black shadow-[1px_1px_0px_#000] active:translate-y-0.5 flex items-center gap-1 ${
+              className={`min-h-[40px] text-[10px] font-pixel px-3 py-1.5 rounded border border-black shadow-[1px_1px_0px_#000] active:translate-y-0.5 flex items-center gap-1 ${
                 sfxEnabled ? 'bg-amber text-carbon' : 'bg-gray-700 text-gray-300'
               }`}
               title="Ativar/Desativar Efeitos Sonoros 8-Bit"
             >
-              {sfxEnabled ? <Volume2 className="w-3 h-3 text-carbon" /> : <VolumeX className="w-3 h-3" />}
+              {sfxEnabled ? <Volume2 className="w-3.5 h-3.5 text-carbon" /> : <VolumeX className="w-3.5 h-3.5" />}
               <span>{sfxEnabled ? 'SFX: ON' : 'SFX: OFF'}</span>
             </button>
           </div>
         </nav>
 
         {/* MAIN BODY */}
-        <main id="chassis" className="max-w-[840px] mx-auto px-1 space-y-6">
+        <main id="chassis" className="max-w-[840px] mx-auto px-2 sm:px-3 space-y-6 w-full overflow-x-hidden">
           
-          <div className="bg-periwinkle p-4 sm:p-6 rounded-md bevel-chassis shadow-hard-drop">
-            <div className="flex items-center justify-between mb-3 border-b-2 border-chrome-indigo pb-2">
+          <div className="bg-periwinkle p-4 sm:p-6 rounded-md bevel-chassis shadow-hard-drop w-full overflow-x-hidden">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-3 border-b-2 border-chrome-indigo pb-2">
               <div className="flex items-center gap-2">
                 <span className="w-3 h-3 bg-signal rounded-full border border-carbon"></span>
                 <h1 className="text-sm font-bold text-carbon uppercase tracking-wider font-sans">
@@ -321,18 +337,27 @@ export default function App() {
               loading={loading}
             />
 
-            <div className="mt-4 pt-3 border-t border-chrome-indigo/30 flex flex-wrap items-center justify-between text-[11px] text-chrome-indigo font-bold">
+            <div className="mt-4 pt-3 border-t border-chrome-indigo/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-[11px] text-chrome-indigo font-bold">
               <span className="flex items-center gap-1">
-                <Zap className="w-3.5 h-3.5 text-signal" /> Playlists, Recorte de Áudio/Vídeo, Capas 4K & Legendas
+                <Zap className="w-3.5 h-3.5 text-signal flex-shrink-0" /> Playlists, Recorte de Áudio/Vídeo, Capas WebP & Legendas
               </span>
               <button
+                type="button"
                 onClick={() => { playClick(); setShowTutorialModal(true); }}
-                className="text-signal hover:underline flex items-center gap-1 font-pixel text-[10px]"
+                className="min-h-[36px] text-signal hover:underline flex items-center gap-1 font-pixel text-[10px]"
               >
                 <span>Ver Manual de Instruções [!]</span>
               </button>
             </div>
           </div>
+
+          {/* EXTRACTOR UI - DIP SWITCH FORMAT & QUALITY SELECTOR */}
+          <ExtractorUI
+            url={urlInput}
+            backendUrl={BACKEND_URL}
+            onTriggerToast={(msg) => setToastMsg(msg)}
+            playClick={playClick}
+          />
 
           {errorMsg && (
             <div className="bg-red-100 border-2 border-primary text-primary p-3 rounded-sm bevel-card flex items-center gap-2 text-xs font-bold">
@@ -352,7 +377,7 @@ export default function App() {
 
           {/* SINGLE MEDIA DISPLAY */}
           {mediaInfo && !mediaInfo.is_playlist && mediaInfo.title && (
-            <div className="bg-surface rounded-md bevel-chassis p-4 sm:p-6 shadow-hard-drop space-y-6">
+            <div className="bg-surface rounded-md bevel-chassis p-4 sm:p-6 shadow-hard-drop space-y-6 w-full overflow-x-hidden">
               <MediaPreviewCard media={{
                 title: mediaInfo.title,
                 thumbnail: mediaInfo.thumbnail || '',
@@ -392,8 +417,8 @@ export default function App() {
           />
 
           {/* FOOTER */}
-          <footer className="bg-halftone text-surface p-4 rounded-sm bevel-chassis text-center space-y-2 shadow-hard-drop">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-700 pb-2 text-[11px] text-gray-400 font-bold uppercase">
+          <footer className="bg-halftone text-surface p-4 rounded-sm bevel-chassis text-center space-y-2 shadow-hard-drop w-full overflow-x-hidden">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-2 border-b border-gray-700 pb-2 text-[11px] text-gray-400 font-bold uppercase">
               <span>LICENSED BY BRUH LTDA</span>
               <div className="flex items-center gap-2">
                 <span className="bg-amber text-carbon px-1.5 py-0.5 rounded text-[9px] font-pixel">ESRB — PRIVACY CERTIFIED</span>
