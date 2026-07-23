@@ -50,6 +50,7 @@ class ProcessRequest(BaseModel):
     media_type: str
     format: str
     quality: Optional[str] = "320"
+    audio_fx: Optional[str] = "none"
 
 CACHE_TTL_SECONDS = 600
 info_cache: Dict[str, Dict[str, Any]] = {}
@@ -553,12 +554,27 @@ async def process_custom_media(req: ProcessRequest):
             'add_metadata': True,
         })
 
+        # Apply Audio FX Filters via FFmpeg
+        audio_fx = (req.audio_fx or 'none').lower()
+        postprocessor_args = []
+        if audio_fx == 'chiptune':
+            postprocessor_args = ['-af', 'aresample=8000,asetrate=8000*1.2,lowpass=f=3000']
+        elif audio_fx == 'nightcore':
+            postprocessor_args = ['-af', 'asetrate=44100*1.25,atempo=1.0']
+        elif audio_fx == 'radio':
+            postprocessor_args = ['-af', 'highpass=f=300,lowpass=f=3000']
+        elif audio_fx == 'bassboost':
+            postprocessor_args = ['-af', 'equalizer=f=60:width_type=h:width=50:g=10']
+
         ydl_opts = {
             **YTDL_BASE_OPTS,
             'format': 'bestaudio/best',
             'outtmpl': output_template,
             'postprocessors': postprocessors,
         }
+        if postprocessor_args:
+            ydl_opts['postprocessor_args'] = postprocessor_args
+
         if _cookies_path:
             ydl_opts['cookiefile'] = _cookies_path
 

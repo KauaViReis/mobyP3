@@ -24,6 +24,7 @@ import ModalPreview from './components/ModalPreview';
 import PlaylistBatchPanel, { PlaylistItem } from './components/PlaylistBatchPanel';
 import MemoryCardPanel, { HistoryBlock } from './components/MemoryCardPanel';
 import InstructionBookletModal from './components/InstructionBookletModal';
+import MobyArcadeGame from './components/MobyArcadeGame';
 import RpgToast from './components/RpgToast';
 
 import { useSFX } from './hooks/useSFX';
@@ -73,6 +74,7 @@ export default function App() {
   
   // Tutorial Modal State
   const [showTutorialModal, setShowTutorialModal] = useState(false);
+  const [showArcadeModal, setShowArcadeModal] = useState(false);
 
   // Memory Card History State
   const [history, setHistory] = useState<HistoryBlock[]>([]);
@@ -288,6 +290,16 @@ export default function App() {
               <span>GUIA [ ! ]</span>
             </button>
 
+            {/* ARCADE MINI-GAME BUTTON */}
+            <button
+              type="button"
+              onClick={() => { playClick(); setShowArcadeModal(true); }}
+              className="min-h-[40px] bg-signal hover:bg-signal/90 text-white font-pixel text-[10px] px-2.5 py-1 rounded border border-carbon shadow-[1px_1px_0px_#000] active:translate-y-0.5 flex items-center gap-1"
+              title="Jogar Mini-Game Arcade 8-Bit"
+            >
+              <span>🎮 ARCADE</span>
+            </button>
+
             {/* 8-BIT SFX TOGGLE BUTTON */}
             <button
               type="button"
@@ -436,6 +448,22 @@ export default function App() {
         {showTutorialModal && (
           <InstructionBookletModal
             onClose={() => setShowTutorialModal(false)}
+            playClick={playClick}
+          />
+        )}
+
+        {/* MOBY ARCADE MINI-GAME MODAL */}
+        {showArcadeModal && (
+          <MobyArcadeGame
+            onClose={() => setShowArcadeModal(false)}
+            onUpdateHighScore={(newScore) => {
+              saveToMemoryCard({
+                title: `Recorde Arcade: ${newScore} pts`,
+                url: `https://mobyp3.vercel.app/#arcade-${newScore}`,
+                platform: 'ARCADE'
+              });
+              setToastMsg(`🎮 Novo Recorde gravado no Memory Card: ${newScore} pts!`);
+            }}
             playClick={playClick}
           />
         )}

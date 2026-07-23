@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { Music, Video, Image as ImageIcon, Download, Sparkles, RefreshCw, Zap, CheckCircle2 } from 'lucide-react';
+import { Music, Video, Image as ImageIcon, Download, Sparkles, RefreshCw, Zap, Sliders, Radio, Activity } from 'lucide-react';
 
 export type MediaTypeCategory = 'audio' | 'video' | 'thumbnail';
+export type AudioFXPreset = 'none' | 'chiptune' | 'nightcore' | 'radio' | 'bassboost';
 
 export interface ProcessOptions {
   media_type: MediaTypeCategory;
   format: 'mp3' | 'm4a' | 'mp4' | 'webp' | 'jpg' | 'png';
   quality: '320' | '128' | 'native' | '1080p' | '720p' | '480p' | '360p' | 'best';
+  audio_fx?: AudioFXPreset;
 }
 
 interface ExtractorUIProps {
@@ -22,6 +24,7 @@ export default function ExtractorUI({ url, backendUrl, onTriggerToast, playClick
   // Format Selection State
   const [audioFormat, setAudioFormat] = useState<'mp3' | 'm4a'>('mp3');
   const [audioQuality, setAudioQuality] = useState<'320' | '128' | 'native'>('320');
+  const [audioFx, setAudioFx] = useState<AudioFXPreset>('none');
 
   const [videoQuality, setVideoQuality] = useState<'1080p' | '720p' | '480p'>('1080p');
   const [imageFormat, setImageFormat] = useState<'webp' | 'jpg' | 'png'>('webp');
@@ -58,7 +61,8 @@ export default function ExtractorUI({ url, backendUrl, onTriggerToast, playClick
       qualityParam = 'best';
     }
 
-    onTriggerToast(`Iniciando extração [${activeCategory.toUpperCase()}: ${formatParam.toUpperCase()} ${qualityParam}]...`);
+    const fxLabel = audioFx !== 'none' ? ` [FX: ${audioFx.toUpperCase()}]` : '';
+    onTriggerToast(`Iniciando extração [${activeCategory.toUpperCase()}: ${formatParam.toUpperCase()} ${qualityParam}]${fxLabel}...`);
 
     const apiBase = backendUrl.replace(/\/$/, '');
 
@@ -71,7 +75,8 @@ export default function ExtractorUI({ url, backendUrl, onTriggerToast, playClick
           url: url.trim(),
           media_type: activeCategory,
           format: formatParam,
-          quality: qualityParam
+          quality: qualityParam,
+          audio_fx: audioFx
         }),
         signal: AbortSignal.timeout(60000)
       });
@@ -85,14 +90,12 @@ export default function ExtractorUI({ url, backendUrl, onTriggerToast, playClick
       const blob = await res.blob();
       const blobUrl = URL.createObjectURL(blob);
 
-      // Create dynamic download link
       const a = document.createElement('a');
       a.href = blobUrl;
       
       const ext = formatParam;
       const cleanTitle = `mobyP3_${activeCategory}_${Date.now()}.${ext}`;
       
-      // Try to get filename from Content-Disposition header
       const contentDisposition = res.headers.get('Content-Disposition');
       if (contentDisposition && contentDisposition.includes('filename=')) {
         const match = contentDisposition.match(/filename=["']?([^"';]+)["']?/);
@@ -181,9 +184,9 @@ export default function ExtractorUI({ url, backendUrl, onTriggerToast, playClick
       {/* Options Panel per Category */}
       <div className="bg-surface p-4 rounded-sm bevel-inset space-y-4">
         
-        {/* CATEGORY 1: AUDIO OPTIONS */}
+        {/* CATEGORY 1: AUDIO OPTIONS & RETRO FX SYNTHESIZER */}
         {activeCategory === 'audio' && (
-          <div className="space-y-3">
+          <div className="space-y-4">
             <div className="text-xs font-bold text-carbon uppercase flex items-center justify-between">
               <span>Formato & Taxa de Bits (Bitrate):</span>
               <span className="text-[10px] text-signal font-pixel">ID3 Tag + Capa Embutida</span>
@@ -238,6 +241,82 @@ export default function ExtractorUI({ url, backendUrl, onTriggerToast, playClick
                 <span className="text-[10px] text-gray-500 font-medium">Sem re-encoding</span>
               </button>
             </div>
+
+            {/* RETRO AUDIO FX SYNTHESIZER SELECTOR */}
+            <div className="pt-3 border-t border-gray-300 space-y-2">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-chrome-indigo uppercase font-pixel">
+                <Sliders className="w-4 h-4 text-signal" />
+                <span>FILTRO / SINTETIZADOR DE ÁUDIO RETRÔ:</span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                <button
+                  type="button"
+                  onClick={() => { if (playClick) playClick(); setAudioFx('none'); }}
+                  className={`min-h-[44px] px-2 py-1.5 rounded text-[11px] font-bold border transition-all flex flex-col items-center justify-center text-center ${
+                    audioFx === 'none'
+                      ? 'bg-carbon text-white border-carbon shadow-sm'
+                      : 'bg-canvas text-gray-700 border-gray-300 hover:border-chrome-indigo'
+                  }`}
+                >
+                  <span>🎵 Padrão</span>
+                  <span className="text-[9px] text-gray-400 font-normal">Original</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { if (playClick) playClick(); setAudioFx('chiptune'); }}
+                  className={`min-h-[44px] px-2 py-1.5 rounded text-[11px] font-bold border transition-all flex flex-col items-center justify-center text-center ${
+                    audioFx === 'chiptune'
+                      ? 'bg-amber text-carbon border-black shadow-sm font-pixel'
+                      : 'bg-canvas text-gray-700 border-gray-300 hover:border-amber'
+                  }`}
+                >
+                  <span>🕹️ Chiptune</span>
+                  <span className="text-[9px] text-carbon/80 font-normal">8-Bit Game</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { if (playClick) playClick(); setAudioFx('nightcore'); }}
+                  className={`min-h-[44px] px-2 py-1.5 rounded text-[11px] font-bold border transition-all flex flex-col items-center justify-center text-center ${
+                    audioFx === 'nightcore'
+                      ? 'bg-signal text-white border-carbon shadow-sm'
+                      : 'bg-canvas text-gray-700 border-gray-300 hover:border-signal'
+                  }`}
+                >
+                  <span>⚡ Nightcore</span>
+                  <span className="text-[9px] text-white/80 font-normal">1.25x Speed</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { if (playClick) playClick(); setAudioFx('radio'); }}
+                  className={`min-h-[44px] px-2 py-1.5 rounded text-[11px] font-bold border transition-all flex flex-col items-center justify-center text-center ${
+                    audioFx === 'radio'
+                      ? 'bg-chrome-indigo text-white border-carbon shadow-sm'
+                      : 'bg-canvas text-gray-700 border-gray-300 hover:border-chrome-indigo'
+                  }`}
+                >
+                  <span>📻 Rádio 90s</span>
+                  <span className="text-[9px] text-white/80 font-normal">Filtro AM/FM</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { if (playClick) playClick(); setAudioFx('bassboost'); }}
+                  className={`min-h-[44px] px-2 py-1.5 rounded text-[11px] font-bold border transition-all flex flex-col items-center justify-center text-center col-span-2 sm:col-span-1 ${
+                    audioFx === 'bassboost'
+                      ? 'bg-red-600 text-white border-carbon shadow-sm'
+                      : 'bg-canvas text-gray-700 border-gray-300 hover:border-red-600'
+                  }`}
+                >
+                  <span>💥 Bass Boost</span>
+                  <span className="text-[9px] text-white/80 font-normal">Graves Extra</span>
+                </button>
+              </div>
+            </div>
+
           </div>
         )}
 
