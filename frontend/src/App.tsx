@@ -218,17 +218,6 @@ export default function App() {
       {/* Main App Container with Zero Horizontal Scrollbar */}
       <div className="min-h-screen bg-canvas pb-16 pt-2 font-sans selection:bg-signal selection:text-white w-full overflow-x-hidden">
         
-        {/* MOBILE STICKY LOADING PROGRESS FEEDBACK BANNER */}
-        {loading && (
-          <div className="sticky top-0 z-50 bg-signal text-white px-4 py-3 shadow-md border-b-2 border-carbon font-bold text-xs flex items-center justify-between animate-pulse">
-            <div className="flex items-center gap-2">
-              <RefreshCw className="w-4 h-4 animate-spin" />
-              <span>ESCANEANDO MÍDIA EM ALTA VELOCIDADE...</span>
-            </div>
-            <span className="font-pixel text-[10px] bg-carbon text-amber px-2 py-0.5 rounded">mobyP3 BUSCA</span>
-          </div>
-        )}
-
         {/* RETRO FLOATING QUEST ICON [ ! ] */}
         <button
           type="button"
@@ -329,6 +318,17 @@ export default function App() {
                 BRUH LTDA ENGINE PRO
               </span>
             </div>
+
+            {/* IN-CHASSIS PROGRESS STATUS BANNER (No Top-Screen Overflow) */}
+            {loading && (
+              <div className="mb-3 bg-signal text-white px-3.5 py-2.5 rounded-sm bevel-card text-xs font-bold flex items-center justify-between animate-pulse shadow-md border border-carbon">
+                <div className="flex items-center gap-2">
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <span>ESCANEANDO MÍDIA EM ALTA VELOCIDADE...</span>
+                </div>
+                <span className="font-pixel text-[10px] bg-carbon text-amber px-2 py-0.5 rounded">mobyP3 BUSCA</span>
+              </div>
+            )}
 
             <UrlInputGroup
               urlInput={urlInput}

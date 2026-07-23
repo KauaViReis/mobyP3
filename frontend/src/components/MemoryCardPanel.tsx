@@ -43,7 +43,7 @@ export default function MemoryCardPanel({ history, onLoadUrl, onDeleteItem, onCl
         <div className="flex items-center gap-2 bg-[#0e1017] px-2.5 py-1.5 rounded border border-[#3d4f97]">
           <span className={`w-2.5 h-2.5 rounded-full ${usedBlocks > 0 ? 'bg-green-500 animate-pulse' : 'bg-gray-600'}`}></span>
           <span className="text-[11px] font-bold text-[#ecab37] font-pixel">
-            SLOT 1: {usedBlocks}/{maxBlocks} BLOCKS USED
+            SLOT 1: {usedBlocks}/{maxBlocks} BLOCOS USADOS
           </span>
         </div>
       </div>
@@ -68,7 +68,7 @@ export default function MemoryCardPanel({ history, onLoadUrl, onDeleteItem, onCl
                       {item.platform || 'MIDIA'}
                     </span>
                     <span className="text-[9px] text-gray-400 font-bold font-pixel">
-                      BLOCK #{index + 1}
+                      BLOCO #{index + 1}
                     </span>
                   </div>
 

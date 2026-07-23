@@ -65,10 +65,10 @@ export default function UrlInputGroup({ urlInput, setUrlInput, onSubmit, loading
         }
       }
     } catch {
-      // Browser permission block fallback prompt
+      // Browser permission fallback prompt
     }
     // Fallback if clipboard API permission is denied
-    const manualText = prompt("Cole a URL do vídeo/áudio aqui:");
+    const manualText = prompt("Cole a URL do vídeo ou áudio aqui:");
     if (manualText) {
       setUrlInput(manualText.trim());
       setCopied(true);
@@ -92,7 +92,7 @@ export default function UrlInputGroup({ urlInput, setUrlInput, onSubmit, loading
             }}
             className="min-h-[36px] bg-signal text-white px-3 py-1 rounded text-[10px] font-bold hover:bg-signal/90 uppercase tracking-wider bevel-card active:translate-y-0.5"
           >
-            READ DISK ➔
+            COLAR AUTO ➔
           </button>
         </div>
       )}
@@ -123,22 +123,22 @@ export default function UrlInputGroup({ urlInput, setUrlInput, onSubmit, loading
             />
           </div>
 
-          {/* Retro Auto-Paste Button ("READ DISK" / "COLAR") - Min 48px touch target */}
+          {/* Retro Auto-Paste Button ("LER DISCO") - Min 48px touch target */}
           <button
             type="button"
             onClick={handlePaste}
             className="min-h-[48px] bg-amber hover:bg-amber/90 active:translate-y-0.5 text-carbon px-4 py-2.5 rounded-sm font-bold text-xs uppercase tracking-wider bevel-card flex items-center justify-center gap-2 shadow-bevel-btn"
-            title="Auto-Paste da Área de Transferência (1 Toque)"
+            title="Auto-Colar da Área de Transferência (1 Toque)"
           >
             {copied ? (
               <>
                 <Check className="w-4 h-4 text-green-800" />
-                <span>DISC READ!</span>
+                <span>DISCO LIDO!</span>
               </>
             ) : (
               <>
                 <Disc className="w-4 h-4 text-carbon animate-spin-slow" />
-                <span>READ DISK</span>
+                <span>LER DISCO</span>
               </>
             )}
           </button>
